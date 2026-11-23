@@ -13,8 +13,6 @@
 
 <p align="center">
   <a href="https://github.com/Mostafijemon24/Nexora-AI/actions/workflows/ci.yml"><img src="https://github.com/Mostafijemon24/Nexora-AI/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <img src="https://img.shields.io/badge/platforms-Web%20%C2%B7%20Windows%20%C2%B7%20macOS%20%C2%B7%20Linux-5980a6" alt="Platforms">
-  <img src="https://img.shields.io/badge/version-1.0.0-416180" alt="Version 1.0.0">
 </p>
 
 # Nexora AI
