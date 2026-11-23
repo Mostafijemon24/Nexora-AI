@@ -124,7 +124,7 @@ Settings. Every call writes a `usage_records` row.
   credits, unavailable or outage **and** a fallback is configured, the fallback answers that one call
   and the response says so. The default is never changed. Spend is capped by the monthly limit using
   the cost OpenRouter reports.
-- **Claude** is called through the official SDK (`claude-opus-5-5` by default, with the API's
+- **Anthropic Claude** is called through the official SDK (`claude-opus-5-5` by default, with the API's
   server-side refusal fallback enabled). OpenAI and Gemini default models are set by `OPENAI_MODEL`
   and `GEMINI_MODEL`.
 - Cost is recorded only when the provider reports it (OpenRouter). For the others the month's
