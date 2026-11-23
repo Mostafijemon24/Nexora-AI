@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/industry-c8e35742-e195-45cb-b28d-ca3410047768/styles.css">
+<script src="_ds/industry-c8e35742-e195-45cb-b28d-ca3410047768/_ds_bundle.js"></script>
+<style>
+body{margin:0}
+[data-nxr]{--muted:color-mix(in srgb,var(--color-text) 68%,transparent);--line2:color-mix(in srgb,var(--color-text) 9%,transparent);--tint:color-mix(in srgb,var(--color-accent) 12%,transparent)}
+[data-nxr][data-theme="dark"]{--color-bg:#16181a;--color-surface:#1f2225;--color-text:#e4e6e8;--color-divider:color-mix(in srgb,#e4e6e8 22%,transparent);--color-accent:#749dc4;--color-accent-600:#94bce3;--color-accent-700:#a9cdf0;--color-accent-100:#1d2d3d;--color-accent-800:#d6ebff;--color-neutral-100:#2b2b2d;--color-neutral-800:#d4d4d7;--shadow-lg:0 12px 32px rgba(0,0,0,.55)}
+[data-nxr] a{color:var(--color-accent-700)}
+[data-nxr] a:hover{color:var(--color-accent)}
+[data-plat="android"] main [style*="span"]{grid-column:auto!important}
+@keyframes nxrIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+</style>
+</helmet>
+<div data-nxr="" data-plat="{{ platform }}" data-theme="{{ theme }}" style="max-width:{{ frameMax }};width:100%;margin:0 auto;box-sizing:border-box;border-inline:1px solid var(--color-divider);height:100vh;display:flex;flex-direction:column;background:var(--color-bg);color:var(--color-text);font-family:var(--font-body);font-size:14px">
+
+<sc-if value="{{ isWeb }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;align-items:center;gap:10px;padding:6px 12px;border-bottom:1px solid var(--color-divider);background:var(--color-surface);font-size:12px">
+  <div style="padding:5px 12px;border:1px solid var(--color-divider);border-bottom:none;background:var(--color-bg);font-family:var(--font-heading);font-weight:600">Nexora AI</div>
+  <div style="flex:1;min-width:0;display:flex;align-items:center;gap:8px;padding:5px 10px;border:1px solid var(--color-divider);background:var(--color-bg);color:var(--muted);overflow:hidden;white-space:nowrap">{{ ic.globe }}<span>{{ url }}</span></div>
+</div>
+</sc-if>
+<sc-if value="{{ isWin }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;align-items:center;gap:10px;padding:0 0 0 12px;border-bottom:1px solid var(--color-divider);background:var(--color-surface);font-size:12px;height:34px">
+  <span style="font-family:var(--font-heading);font-weight:600;font-size:13px">Nexora AI</span>
+  <span style="color:var(--muted)">{{ osLabel }}</span>
+  <div style="margin-left:auto;display:flex;height:100%;color:var(--muted)">
+    <span style="width:44px;display:grid;place-items:center">{{ ic.minus }}</span>
+    <span style="width:44px;display:grid;place-items:center">{{ ic.square }}</span>
+    <span style="width:44px;display:grid;place-items:center">{{ ic.x }}</span>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isMac }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;align-items:center;gap:10px;padding:0 12px;border-bottom:1px solid var(--color-divider);background:var(--color-surface);font-size:12px;height:30px">
+  <div style="display:flex;gap:7px;flex:1 1 0;min-width:0"><span style="width:11px;height:11px;border-radius:50%;border:1px solid var(--muted)"></span><span style="width:11px;height:11px;border-radius:50%;border:1px solid var(--muted)"></span><span style="width:11px;height:11px;border-radius:50%;border:1px solid var(--muted)"></span></div>
+  <span style="flex:none;font-family:var(--font-heading);font-weight:600;font-size:13px">Nexora AI</span>
+  <span style="flex:1 1 0;min-width:0;text-align:right;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ osLabel }}</span>
+</div>
+</sc-if>
+<sc-if value="{{ isLinux }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;align-items:center;gap:10px;padding:0 8px 0 12px;border-bottom:1px solid var(--color-divider);background:var(--color-surface);font-size:12px;height:36px">
+  <span style="color:var(--muted);white-space:nowrap">{{ osLabel }}</span>
+  <span style="flex:1;text-align:center;font-family:var(--font-heading);font-weight:600;font-size:13px">Nexora AI</span>
+  <div style="display:flex;gap:6px;color:var(--muted)">
+    <span style="width:22px;height:22px;border:1px solid var(--color-divider);display:grid;place-items:center">{{ ic.minus }}</span>
+    <span style="width:22px;height:22px;border:1px solid var(--color-divider);display:grid;place-items:center">{{ ic.square }}</span>
+    <span style="width:22px;height:22px;border:1px solid var(--color-divider);display:grid;place-items:center">{{ ic.x }}</span>
+  </div>
+</div>
+</sc-if>
+<sc-if value="{{ isAndroid }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;align-items:center;justify-content:space-between;padding:0 16px;background:var(--color-surface);font-size:12px;height:28px;font-weight:500"><span>9:41</span><span style="color:var(--muted)">{{ osLabel }}</span><span>5G · 87%</span></div>
+<nav style="order:99;display:{{ appDisplay }};border-top:1px solid var(--color-divider);background:var(--color-surface)">
+  <sc-for list="{{ nav }}" as="n" hint-placeholder-count="7"><button onClick="{{ n.go }}" title="{{ n.label }}" style="flex:1;min-width:0;height:52px;display:grid;place-items:center;border:none;border-top:2px solid {{ n.bd }};background:{{ n.bg }};color:{{ n.fg }};cursor:pointer;padding:0">{{ n.icon }}</button></sc-for>
+</nav>
+</sc-if>
+
+<sc-if value="{{ gated }}" hint-placeholder-val="{{ false }}">
+<div style="flex:1;min-height:0;overflow:auto;display:grid;place-items:center;padding:24px">
+  <div class="card blueprint" style="width:100%;max-width:540px;animation:nxrIn .2s"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+    <div class="card-kicker">License activation · {{ gateDevice }}</div>
+    <h2 style="margin:0">Activate Nexora AI</h2>
+    <p class="card-body">A valid license is required before any feature is available. One license runs on one active device.</p>
+    <div class="field"><label>License key</label><input class="input" placeholder="NXR-XXXXX-0000" value="{{ licKey }}" onChange="{{ setLicKey }}" onKeyDown="{{ licKeyDown }}"></div>
+    <sc-if value="{{ hasLicMsg }}" hint-placeholder-val="{{ false }}">
+      <div style="border:1px solid var(--color-divider);background:var(--tint);padding:10px;display:flex;flex-direction:column;gap:8px">
+        <strong>{{ licMsg.title }}</strong><span style="font-size:13px">{{ licMsg.body }}</span>
+        <sc-if value="{{ licMsg.canTransfer }}" hint-placeholder-val="{{ false }}"><div><button class="btn btn-secondary" onClick="{{ startTransfer }}">Transfer license to this device</button></div></sc-if>
+      </div>
+    </sc-if>
+    <sc-if value="{{ transferStep }}" hint-placeholder-val="{{ false }}">
+      <div style="border:1px solid var(--color-divider);padding:10px;display:flex;flex-direction:column;gap:8px">
+        <strong>Verify the transfer</strong><span style="font-size:13px">A 6-digit code was sent to the license owner’s email. After verification the other device is deactivated and this one is registered.</span>
+        <div style="display:flex;gap:8px"><input class="input" placeholder="6-digit code" value="{{ licCode }}" onChange="{{ setLicCode }}"><button class="btn btn-secondary" onClick="{{ confirmTransfer }}">Confirm transfer</button></div>
+        <sc-if value="{{ licCodeErr }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:var(--color-accent-700)">Enter the 6-digit code.</span></sc-if>
+      </div>
+    </sc-if>
+    <button class="btn btn-primary blueprint" disabled="{{ activating }}" onClick="{{ activate }}"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>{{ activateLabel }}</button>
+    <div style="border-top:1px solid var(--color-divider);padding-top:10px;display:flex;flex-direction:column;gap:6px">
+      <div class="card-kicker">Prototype test keys · simulated server responses</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ testKeys }}" as="k" hint-placeholder-count="5"><button class="tag tag-outline" onClick="{{ k.use }}" style="background:transparent;cursor:pointer;font:inherit;font-size:12px">{{ k.label }}</button></sc-for></div>
+    </div>
+    <div style="font-size:12px;color:var(--muted)">Keys are validated by the license server, never in this app. Need help? <a href="mailto:support@nexora.example">Contact support</a></div>
+  </div>
+</div>
+</sc-if>
+<div style="flex:1;min-height:0;display:{{ appDisplay }}">
+  <aside style="width:{{ sideW }};flex:none;border-right:1px solid var(--color-divider);display:{{ asideDisplay }};flex-direction:column;padding:12px 8px;gap:4px;transition:width .15s;overflow:hidden">
+    <div style="display:flex;align-items:center;gap:8px;padding:4px 8px 14px;white-space:nowrap">
+      <span style="width:22px;height:22px;flex:none;background:var(--color-accent);color:var(--color-bg);display:grid;place-items:center;font-family:var(--font-heading);font-weight:600;font-size:13px">N</span>
+      <sc-if value="{{ showLabels }}" hint-placeholder-val="{{ true }}"><span style="font-family:var(--font-heading);font-weight:600;font-size:17px">Nexora AI</span></sc-if>
+    </div>
+    <sc-for list="{{ nav }}" as="n" hint-placeholder-count="7">
+      <button onClick="{{ n.go }}" title="{{ n.label }}" style="display:flex;align-items:center;gap:10px;width:100%;padding:8px;border:1px solid {{ n.bd }};background:{{ n.bg }};color:{{ n.fg }};font:inherit;font-size:14px;cursor:pointer;text-align:left;white-space:nowrap" style-hover="background:var(--tint)">
+        <span style="flex:none;display:grid;place-items:center;width:20px">{{ n.icon }}</span>
+        <sc-if value="{{ showLabels }}" hint-placeholder-val="{{ true }}"><span style="flex:1">{{ n.label }}</span></sc-if>
+        <sc-if value="{{ n.showBadge }}" hint-placeholder-val="{{ false }}"><span class="tag tag-accent" style="padding:1px 7px">{{ n.badge }}</span></sc-if>
+      </button>
+    </sc-for>
+    <sc-if value="{{ showLabels }}" hint-placeholder-val="{{ true }}">
+      <div style="margin-top:auto;padding:10px 8px;border-top:1px solid var(--color-divider);font-size:12px;color:var(--muted);white-space:nowrap">
+        <div style="color:var(--color-text);font-weight:500">Northwind Growth</div>
+        <div>Professional · Hybrid hosting</div>
+      </div>
+    </sc-if>
+  </aside>
+
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+    <header style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 16px;border-bottom:1px solid var(--color-divider)">
+      <button class="btn btn-secondary btn-icon" onClick="{{ toggleSide }}" title="Toggle sidebar" style="display:{{ asideDisplay }}">{{ ic.panel }}</button>
+      <h4 style="margin:0 auto 0 4px">{{ title }}</h4>
+      <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)"><span style="width:7px;height:7px;background:{{ syncDot }}"></span>{{ syncLabel }}</span>
+      <sc-if value="{{ isDesktop }}" hint-placeholder-val="{{ false }}"><button class="btn btn-secondary" onClick="{{ toggleOnline }}">{{ onlineBtn }}</button></sc-if>
+      <div class="seg"><sc-for list="{{ platformTabs }}" as="t" hint-placeholder-count="2"><label class="seg-opt"><input type="radio" checked="{{ t.on }}" onChange="{{ t.pick }}"><span>{{ t.label }}</span></label></sc-for></div>
+      <button class="btn btn-secondary btn-icon" onClick="{{ toggleTheme }}" title="Toggle theme">{{ themeIcon }}</button>
+    </header>
+
+    <main style="flex:1;min-height:0;overflow:auto;padding:20px">
+
+<sc-if value="{{ isDash }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;flex-direction:column;gap:20px;animation:nxrIn .2s">
+  <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between">
+    <div><h2 style="margin:0">Good morning, Rafiq</h2><div style="font-size:13px;color:var(--muted)">Monday, 23 November · {{ rangeLabel }}</div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <div class="seg"><sc-for list="{{ rangeTabs }}" as="t" hint-placeholder-count="3"><label class="seg-opt"><input type="radio" checked="{{ t.on }}" onChange="{{ t.pick }}"><span>{{ t.label }}</span></label></sc-for></div>
+      <button class="btn btn-secondary" onClick="{{ toggleCustom }}">{{ customLabel }}</button>
+    </div>
+  </div>
+  <sc-if value="{{ customizing }}" hint-placeholder-val="{{ false }}">
+    <div class="card blueprint"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+      <div class="card-kicker">Widgets</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px"><sc-for list="{{ widgetChips }}" as="c" hint-placeholder-count="6"><button class="btn btn-secondary" onClick="{{ c.toggle }}" style="background:{{ c.bg }}">{{ c.mark }} {{ c.label }}</button></sc-for></div>
+    </div>
+  </sc-if>
+  <sc-if value="{{ w.kpi }}" hint-placeholder-val="{{ true }}">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:20px">
+      <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="4">
+        <button class="card blueprint" onClick="{{ k.go }}" style="text-align:left;cursor:pointer;color:inherit;font:inherit" style-hover="background:var(--tint)"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+          <span class="card-kicker">{{ k.label }}</span>
+          <span style="font-family:var(--font-heading);font-weight:600;font-size:40px;line-height:1">{{ k.value }}</span>
+          <span class="card-meta">{{ k.meta }} →</span>
+        </button>
+      </sc-for>
+    </div>
+  </sc-if>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px">
+    <sc-if value="{{ w.perf }}" hint-placeholder-val="{{ true }}">
+      <div class="card blueprint"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+        <div class="card-kicker">Replies received</div>
+        <div style="display:flex;align-items:flex-end;gap:6px;height:150px;padding-top:8px">
+          <sc-for list="{{ bars }}" as="b" hint-placeholder-count="7"><div title="{{ b.v }}" style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px;height:100%"><span style="font-size:11px;color:var(--muted)">{{ b.v }}</span><div style="width:100%;height:{{ b.h }};background:var(--color-accent);transition:height .25s"></div><span style="font-size:11px;color:var(--muted)">{{ b.l }}</span></div></sc-for>
+        </div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ w.funnel }}" hint-placeholder-val="{{ true }}">
+      <div class="card blueprint"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+        <div class="card-kicker">Lead funnel</div>
+        <div style="display:flex;flex-direction:column;gap:10px;padding-top:6px">
+          <sc-for list="{{ funnel }}" as="f" hint-placeholder-count="4"><div><div style="display:flex;justify-content:space-between;font-size:13px"><span>{{ f.l }}</span><span>{{ f.v }}</span></div><div style="height:10px;border:1px solid var(--color-divider)"><div style="height:100%;width:{{ f.w }};background:var(--color-accent);transition:width .25s"></div></div></div></sc-for>
+        </div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ w.tasks }}" hint-placeholder-val="{{ true }}">
+      <div class="card blueprint"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+        <div class="card-kicker">Upcoming tasks</div>
+        <sc-for list="{{ tasks }}" as="t" hint-placeholder-count="3">
+          <label style="display:flex;gap:10px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--line2);cursor:pointer">
+            <input type="checkbox" checked="{{ t.done }}" onChange="{{ t.toggle }}" style="accent-color:var(--color-accent);margin-top:3px">
+            <span style="flex:1;text-decoration:{{ t.deco }};opacity:{{ t.op }}">{{ t.text }}</span><span style="font-size:12px;color:var(--muted)">{{ t.due }}</span>
+          </label>
+        </sc-for>
+        <sc-if value="{{ noTasks }}" hint-placeholder-val="{{ false }}"><div style="color:var(--muted);font-size:13px">No tasks. Create a follow-up from any conversation.</div></sc-if>
+      </div>
+    </sc-if>
+    <sc-if value="{{ w.ai }}" hint-placeholder-val="{{ true }}">
+      <div class="card blueprint"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+        <div class="card-kicker">AI activity</div>
+        <sc-for list="{{ aiStats }}" as="s" hint-placeholder-count="3"><div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line2)"><span>{{ s.l }}</span><strong>{{ s.v }}</strong></div></sc-for>
+      </div>
+    </sc-if>
+    <sc-if value="{{ w.activity }}" hint-placeholder-val="{{ true }}">
+      <div class="card blueprint"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+        <div class="card-kicker">Recent activity</div>
+        <sc-for list="{{ activity }}" as="a" hint-placeholder-count="4"><div style="display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid var(--line2)"><span>{{ a.text }}</span><span style="font-size:12px;color:var(--muted);white-space:nowrap">{{ a.time }}</span></div></sc-for>
+      </div>
+    </sc-if>
+    <sc-if value="{{ w.health }}" hint-placeholder-val="{{ true }}">
+      <div class="card blueprint"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+        <div class="card-kicker">System health</div>
+        <sc-for list="{{ health }}" as="h" hint-placeholder-count="3"><div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--line2)"><span>{{ h.l }}</span><span class="{{ h.cls }}">{{ h.v }}</span></div></sc-for>
+      </div>
+    </sc-if>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isAi }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:20px;animation:nxrIn .2s">
+  <div class="seg" style="align-self:flex-start"><sc-for list="{{ aiTabs }}" as="t" hint-placeholder-count="3"><label class="seg-opt"><input type="radio" checked="{{ t.on }}" onChange="{{ t.pick }}"><span>{{ t.label }}</span></label></sc-for></div>
+  <sc-if value="{{ aiScoring }}" hint-placeholder-val="{{ true }}">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;align-items:start">
+      <div class="card blueprint"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+        <div class="card-kicker">Target customer criteria</div>
+        <div class="field"><label>Industry</label><input class="input" value="{{ icp.industry }}" onChange="{{ setIcp.industry }}"></div>
+        <div class="field"><label>Job titles (comma separated)</label><input class="input" value="{{ icp.title }}" onChange="{{ setIcp.title }}"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="field"><label>Company size min</label><input class="input" type="number" value="{{ icp.sizeMin }}" onChange="{{ setIcp.sizeMin }}"></div>
+          <div class="field"><label>Company size max</label><input class="input" type="number" value="{{ icp.sizeMax }}" onChange="{{ setIcp.sizeMax }}"></div>
+        </div>
+        <div class="field"><label>Location</label><input class="input" value="{{ icp.location }}" onChange="{{ setIcp.location }}"></div>
+        <div style="font-size:12px;color:var(--muted)">Scores update as you type. Missing data is never guessed.</div>
+      </div>
+      <div class="card blueprint" style="min-width:0;overflow-x:auto"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+        <div class="card-kicker">Leads ranked by match</div>
+        <table class="table"><thead><tr><th>Lead</th><th>Score</th><th>Conf.</th></tr></thead><tbody>
+          <sc-for list="{{ ranked }}" as="l" hint-placeholder-count="6"><tr onClick="{{ l.pick }}" style="cursor:pointer;background:{{ l.bg }}"><td><div style="font-weight:500">{{ l.name }}</div><div style="font-size:12px;color:var(--muted)">{{ l.sub }}</div></td><td><strong>{{ l.total }}</strong></td><td>{{ l.conf }}/10</td></tr></sc-for>
+        </tbody></table>
+      </div>
+      <div class="card blueprint"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+        <div class="card-kicker">Score breakdown · {{ sel.name }}</div>
+        <div style="display:flex;align-items:baseline;gap:8px"><span style="font-family:var(--font-heading);font-weight:600;font-size:64px;line-height:1">{{ sel.total }}</span><span style="color:var(--muted)">/ 100</span><span class="tag tag-accent" style="margin-left:auto">{{ sel.label }}</span></div>
+        <sc-for list="{{ sel.parts }}" as="p" hint-placeholder-count="4"><div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--line2)"><div><div>{{ p.name }}</div><div style="font-size:12px;color:var(--muted)">{{ p.found }}</div></div><strong style="white-space:nowrap">{{ p.pts }}</strong></div></sc-for>
+        <div style="display:flex;justify-content:space-between;padding-top:4px"><span>Data confidence</span><strong>{{ sel.conf }} / 10</strong></div>
+        <button class="btn btn-secondary" onClick="{{ draftForSel }}">Draft personalized message</button>
+      </div>
+    </div>
+  </sc-if>
+  <sc-if value="{{ aiChat }}" hint-placeholder-val="{{ false }}">
+    <div class="card blueprint" style="max-width:820px"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+      <div class="card-kicker">AI assistant · {{ chatProvider }}</div>
+      <div style="display:flex;flex-direction:column;gap:10px;min-height:220px">
+        <sc-for list="{{ chat }}" as="m" hint-placeholder-count="2"><div style="align-self:{{ m.align }};max-width:80%;padding:8px 12px;border:1px solid var(--color-divider);background:{{ m.bg }};white-space:pre-wrap">{{ m.text }}</div></sc-for>
+        <sc-if value="{{ thinking }}" hint-placeholder-val="{{ false }}"><div style="color:var(--muted);font-size:13px">Thinking…</div></sc-if>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ quickPrompts }}" as="q" hint-placeholder-count="3"><button class="tag tag-outline" onClick="{{ q.use }}" style="background:transparent;cursor:pointer;font:inherit;font-size:12px">{{ q.title }}</button></sc-for></div>
+      <div style="display:flex;gap:8px"><input class="input" placeholder="Ask about leads, posts or replies" value="{{ chatInput }}" onChange="{{ setChatInput }}" onKeyDown="{{ chatKey }}"><button class="btn btn-primary blueprint" onClick="{{ sendChat }}"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>Send</button></div>
+    </div>
+  </sc-if>
+  <sc-if value="{{ aiPrompts }}" hint-placeholder-val="{{ false }}">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;align-items:start">
+      <div class="card blueprint"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+        <div class="card-kicker">Prompt library</div>
+        <sc-for list="{{ prompts }}" as="p" hint-placeholder-count="3"><div style="padding:8px 0;border-bottom:1px solid var(--line2)"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><strong>{{ p.title }}</strong><span style="display:flex;gap:4px"><button class="btn btn-ghost" onClick="{{ p.use }}">Use</button><button class="btn btn-ghost" onClick="{{ p.del }}">Delete</button></span></div><div style="font-size:13px;color:var(--muted)">{{ p.text }}</div></div></sc-for>
+        <sc-if value="{{ noPrompts }}" hint-placeholder-val="{{ false }}"><div style="color:var(--muted)">No prompts yet. Add one to reuse it in the assistant.</div></sc-if>
+      </div>
+      <div class="card blueprint"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+        <div class="card-kicker">New prompt</div>
+        <div class="field"><label>Title</label><input class="input" value="{{ npTitle }}" onChange="{{ setNpTitle }}"></div>
+        <div class="field"><label>Prompt</label><textarea class="input" value="{{ npText }}" onChange="{{ setNpText }}"></textarea></div>
+        <sc-if value="{{ npErr }}" hint-placeholder-val="{{ false }}"><div style="font-size:12px;color:var(--color-accent-700)">Title and prompt are both required.</div></sc-if>
+        <button class="btn btn-primary blueprint" onClick="{{ addPrompt }}"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>Save prompt</button>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{ isContent }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:20px;animation:nxrIn .2s">
+  <div class="seg" style="align-self:flex-start"><sc-for list="{{ csTabs }}" as="t" hint-placeholder-count="3"><label class="seg-opt"><input type="radio" checked="{{ t.on }}" onChange="{{ t.pick }}"><span>{{ t.label }}</span></label></sc-for></div>
+  <sc-if value="{{ csGen }}" hint-placeholder-val="{{ true }}">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;align-items:start">
+      <div class="card blueprint"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+        <div class="card-kicker">01 · Topic</div>
+        <div class="field"><label>Topic</label><input class="input" placeholder="e.g. cold outreach follow-ups" value="{{ topic }}" onChange="{{ setTopic }}"></div>
+        <sc-if value="{{ topicErr }}" hint-placeholder-val="{{ false }}"><div style="font-size:12px;color:var(--color-accent-700)">Enter a topic to generate a post.</div></sc-if>
+        <div class="field"><label>Audience</label><input class="input" value="{{ audience }}" onChange="{{ setAudience }}"></div>
+        <div class="field"><label>Tone</label><div class="seg"><sc-for list="{{ toneTabs }}" as="t" hint-placeholder-count="3"><label class="seg-opt"><input type="radio" checked="{{ t.on }}" onChange="{{ t.pick }}"><span>{{ t.label }}</span></label></sc-for></div></div>
+        <div style="font-size:12px;color:var(--muted)">Brand voice: Northwind Growth — plain, specific, no hype.</div>
+        <button class="btn btn-primary blueprint" disabled="{{ generating }}" onClick="{{ generate }}"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>{{ genLabel }}</button>
+      </div>
+      <div class="card blueprint"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+        <div class="card-kicker">02 · Edit and approve</div>
+        <sc-if value="{{ hasGen }}" hint-placeholder-val="{{ false }}">
+          <div class="field"><label>Hook</label><input class="input" value="{{ gen.hook }}" onChange="{{ setGen.hook }}"></div>
+          <div class="field"><label>Body</label><textarea class="input" style="min-height:150px" value="{{ gen.body }}" onChange="{{ setGen.body }}"></textarea></div>
+          <div class="field"><label>Call to action</label><input class="input" value="{{ gen.cta }}" onChange="{{ setGen.cta }}"></div>
+          <div class="field"><label>Hashtags</label><input class="input" value="{{ gen.tags }}" onChange="{{ setGen.tags }}"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary blueprint" onClick="{{ saveDraft }}"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>Save as draft</button><button class="btn btn-secondary" onClick="{{ generate }}">Regenerate</button></div>
+        </sc-if>
+        <sc-if value="{{ noGen }}" hint-placeholder-val="{{ true }}"><div style="color:var(--muted);padding:30px 0">Enter a topic and generate. Nothing is published without your approval.</div></sc-if>
+      </div>
+    </div>
+  </sc-if>
+  <sc-if value="{{ csPosts }}" hint-placeholder-val="{{ false }}">
+    <div class="card blueprint" style="overflow-x:auto"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+      <table class="table"><thead><tr><th>Post</th><th>Status</th><th>Day</th><th></th></tr></thead><tbody>
+        <sc-for list="{{ posts }}" as="p" hint-placeholder-count="4"><tr><td style="min-width:220px"><div style="font-weight:500">{{ p.title }}</div><div style="font-size:12px;color:var(--muted)">{{ p.excerpt }}</div></td><td><span class="{{ p.cls }}">{{ p.status }}</span></td><td style="white-space:nowrap">{{ p.dayLabel }}</td><td><div style="display:flex;gap:6px;justify-content:flex-end"><sc-if value="{{ p.hasAct }}" hint-placeholder-val="{{ true }}"><button class="btn btn-secondary" onClick="{{ p.doAct }}">{{ p.act }}</button></sc-if><button class="btn btn-ghost" onClick="{{ p.del }}">Delete</button></div></td></tr></sc-for>
+      </tbody></table>
+      <div style="font-size:12px;color:var(--muted)">Publishing is a manual reminder unless an approved LinkedIn API scope is connected.</div>
+    </div>
+  </sc-if>
+  <sc-if value="{{ csCal }}" hint-placeholder-val="{{ false }}">
+    <div style="overflow-x:auto;padding:6px"><div style="display:grid;grid-template-columns:repeat(7,minmax(130px,1fr));min-width:910px;border:1px solid var(--color-divider)">
+      <sc-for list="{{ calendar }}" as="d" hint-placeholder-count="7"><div style="border-right:1px solid var(--line2);min-height:260px;padding:8px;display:flex;flex-direction:column;gap:8px;background:{{ d.bg }}">
+        <h6 style="margin:0">{{ d.label }}</h6>
+        <sc-for list="{{ d.posts }}" as="p" hint-placeholder-count="1"><div style="border:1px solid var(--color-divider);padding:6px;font-size:12px;display:flex;flex-direction:column;gap:6px"><span>{{ p.title }}</span><span class="{{ p.cls }}" style="align-self:flex-start">{{ p.status }}</span><span style="display:flex;gap:4px"><button class="btn btn-secondary" style="padding:2px 8px" onClick="{{ p.prev }}" title="Move earlier">‹</button><button class="btn btn-secondary" style="padding:2px 8px" onClick="{{ p.next }}" title="Move later">›</button></span></div></sc-for>
+      </div></sc-for>
+    </div></div>
+  </sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{ isInbox }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:14px;animation:nxrIn .2s">
+  <div style="font-size:12px;color:var(--muted)">Conversations come from manual import and approved connectors only. LinkedIn private inbox is not accessed.</div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;align-items:start">
+    <div class="card blueprint"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+      <input class="input" placeholder="Search conversations" value="{{ convSearch }}" onChange="{{ setConvSearch }}">
+      <div class="seg" style="align-self:flex-start"><sc-for list="{{ convTabs }}" as="t" hint-placeholder-count="3"><label class="seg-opt"><input type="radio" checked="{{ t.on }}" onChange="{{ t.pick }}"><span>{{ t.label }}</span></label></sc-for></div>
+      <sc-for list="{{ convs }}" as="c" hint-placeholder-count="4"><button onClick="{{ c.open }}" style="text-align:left;font:inherit;color:inherit;cursor:pointer;padding:8px;border:1px solid {{ c.bd }};background:{{ c.bg }};display:flex;flex-direction:column;gap:2px" style-hover="background:var(--tint)"><span style="display:flex;justify-content:space-between;gap:8px"><span style="font-weight:{{ c.fw }}">{{ c.name }}</span><span style="font-size:11px;color:var(--muted)">{{ c.channel }}</span></span><span style="font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ c.preview }}</span></button></sc-for>
+      <sc-if value="{{ noConvs }}" hint-placeholder-val="{{ false }}"><div style="color:var(--muted)">No conversations match.</div></sc-if>
+    </div>
+    <div class="card blueprint" style="grid-column:span 2;min-width:0"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between"><div><div class="card-title">{{ conv.name }}</div><div style="font-size:12px;color:var(--muted)">{{ conv.company }} · Intent: {{ conv.intent }} · Sentiment: {{ conv.sentiment }}</div></div>
+        <div style="display:flex;gap:6px"><button class="btn btn-secondary" onClick="{{ toggleImportant }}">{{ importantLabel }}</button><button class="btn btn-secondary" onClick="{{ makeTask }}">Create follow-up</button></div></div>
+      <div style="display:flex;flex-direction:column;gap:8px;padding:8px 0;min-height:160px">
+        <sc-for list="{{ conv.msgs }}" as="m" hint-placeholder-count="2"><div style="align-self:{{ m.align }};max-width:78%;padding:8px 12px;border:1px solid var(--color-divider);background:{{ m.bg }}">{{ m.text }}<div style="font-size:11px;color:var(--muted)">{{ m.time }}</div></div></sc-for>
+      </div>
+      <div style="border:1px dashed var(--color-divider);padding:8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap"><div style="flex:1;min-width:200px"><div class="card-kicker">AI suggested reply · needs your approval</div><div style="font-size:13px">{{ conv.suggestion }}</div></div><button class="btn btn-secondary" onClick="{{ useSuggestion }}">Use</button></div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ savedReplies }}" as="r" hint-placeholder-count="3"><button class="tag tag-outline" onClick="{{ r.use }}" style="background:transparent;cursor:pointer;font:inherit;font-size:12px">{{ r.title }}</button></sc-for></div>
+      <textarea class="input" placeholder="Write a reply" value="{{ draft }}" onChange="{{ setDraft }}"></textarea>
+      <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn btn-primary blueprint" disabled="{{ draftEmpty }}" onClick="{{ sendMsg }}"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>Send reply</button></div>
+      <div style="border-top:1px solid var(--color-divider);padding-top:10px;display:flex;flex-direction:column;gap:6px">
+        <div class="card-kicker">Internal notes</div>
+        <sc-for list="{{ conv.notes }}" as="n" hint-placeholder-count="1"><div style="font-size:13px;padding:4px 8px;background:var(--tint)">{{ n }}</div></sc-for>
+        <div style="display:flex;gap:8px"><input class="input" placeholder="Add a note for the team" value="{{ note }}" onChange="{{ setNote }}" onKeyDown="{{ noteKey }}"><button class="btn btn-secondary" onClick="{{ addNote }}">Add</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isAuto }}" hint-placeholder-val="{{ false }}">
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;align-items:start;animation:nxrIn .2s">
+  <div class="card blueprint"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+    <div style="display:flex;justify-content:space-between;align-items:center"><div class="card-kicker">Workflows</div><button class="btn btn-ghost" onClick="{{ newWf }}">+ New</button></div>
+    <sc-for list="{{ workflows }}" as="f" hint-placeholder-count="3"><div onClick="{{ f.open }}" style="display:flex;align-items:center;gap:10px;padding:8px;cursor:pointer;border:1px solid {{ f.bd }};background:{{ f.bg }}"><div style="flex:1;min-width:0"><div style="font-weight:500">{{ f.name }}</div><div style="font-size:12px;color:var(--muted)">{{ f.meta }}</div></div><button onClick="{{ f.toggle }}" title="Enable or disable" style="flex:none;width:36px;height:20px;border:1px solid var(--color-divider);background:{{ f.sw.bg }};position:relative;cursor:pointer;padding:0"><span style="position:absolute;top:2px;left:{{ f.sw.x }};width:14px;height:14px;background:{{ f.sw.k }};transition:left .15s"></span></button></div></sc-for>
+  </div>
+  <div class="card blueprint" style="grid-column:span 2;min-width:0"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><input class="input" style="flex:1;min-width:180px;font-family:var(--font-heading);font-weight:600;font-size:18px" value="{{ wf.name }}" onChange="{{ setWfName }}"><button class="btn btn-primary blueprint" onClick="{{ runWf }}"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>Test run</button><button class="btn btn-ghost" onClick="{{ delWf }}">Delete</button></div>
+    <div style="display:flex;flex-direction:column">
+      <sc-for list="{{ wf.steps }}" as="s" hint-placeholder-count="4"><div style="display:flex;gap:10px;align-items:stretch"><div style="display:flex;flex-direction:column;align-items:center;width:22px"><span style="width:22px;height:22px;border:1px solid var(--color-divider);display:grid;place-items:center;font-size:11px">{{ s.n }}</span><span style="flex:1;width:1px;background:var(--color-divider)"></span></div><div style="flex:1;display:flex;gap:8px;align-items:center;padding-bottom:10px;flex-wrap:wrap"><span class="tag tag-accent" style="width:92px;justify-content:center">{{ s.type }}</span><input class="input" style="flex:1;min-width:160px" value="{{ s.label }}" onChange="{{ s.set }}"><sc-if value="{{ s.canDel }}" hint-placeholder-val="{{ true }}"><button class="btn btn-secondary btn-icon" onClick="{{ s.del }}" title="Remove step">{{ ic.x }}</button></sc-if></div></div></sc-for>
+    </div>
+    <div><div class="card-kicker" style="margin-bottom:6px">Add step</div><div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ stepTypes }}" as="t" hint-placeholder-count="7"><button class="btn btn-secondary" onClick="{{ t.add }}">+ {{ t.type }}</button></sc-for></div></div>
+    <div style="font-size:12px;color:var(--muted)">Actions that LinkedIn does not permit are not available as steps. Loop protection and a 500-run daily limit apply.</div>
+    <div style="border-top:1px solid var(--color-divider);padding-top:10px"><div class="card-kicker">Run history</div>
+      <sc-for list="{{ runs }}" as="r" hint-placeholder-count="2"><div style="display:flex;gap:10px;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line2);flex-wrap:wrap"><span>{{ r.name }} · {{ r.steps }} steps</span><span style="display:flex;gap:8px;align-items:center"><span class="{{ r.cls }}">{{ r.status }}</span><sc-if value="{{ r.waiting }}" hint-placeholder-val="{{ false }}"><button class="btn btn-secondary" onClick="{{ r.approve }}">Approve</button></sc-if><span style="font-size:12px;color:var(--muted)">{{ r.time }}</span></span></div></sc-for>
+      <sc-if value="{{ noRuns }}" hint-placeholder-val="{{ false }}"><div style="color:var(--muted)">No runs yet. Use Test run to execute this workflow once.</div></sc-if>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isInteg }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:20px;animation:nxrIn .2s">
+  <div class="card blueprint"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+    <div class="card-kicker">LinkedIn integration strategy</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px">
+      <div><h5>Approved API</h5><div style="font-size:13px;color:var(--muted)">OAuth connection · permitted organization content · available analytics</div></div>
+      <div><h5>Manual, user-controlled</h5><div style="font-size:13px;color:var(--muted)">CSV lead import · message drafts · connection, publishing and follow-up reminders</div></div>
+      <div><h5>Not included</h5><div style="font-size:13px;color:var(--muted)">Credential collection · scraping · automated clicking · private inbox extraction</div></div>
+    </div>
+  </div>
+  <div class="seg" style="align-self:flex-start;flex-wrap:wrap"><sc-for list="{{ catTabs }}" as="t" hint-placeholder-count="6"><label class="seg-opt"><input type="radio" checked="{{ t.on }}" onChange="{{ t.pick }}"><span>{{ t.label }}</span></label></sc-for></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:20px">
+    <sc-for list="{{ integrations }}" as="g" hint-placeholder-count="6"><div class="card blueprint"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+      <div style="display:flex;justify-content:space-between;align-items:center"><span class="card-kicker">{{ g.cat }}</span><span class="{{ g.cls }}">{{ g.status }}</span></div>
+      <div class="card-title">{{ g.name }}</div><p class="card-body">{{ g.desc }}</p>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <sc-if value="{{ g.connected }}" hint-placeholder-val="{{ false }}"><button class="btn btn-secondary" onClick="{{ g.test }}">{{ g.testLabel }}</button><button class="btn btn-ghost" onClick="{{ g.disconnect }}">Disconnect</button></sc-if>
+        <sc-if value="{{ g.off }}" hint-placeholder-val="{{ true }}"><button class="btn btn-secondary" onClick="{{ g.connect }}">Connect</button></sc-if>
+      </div>
+    </div></sc-for>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isSettings }}" hint-placeholder-val="{{ false }}">
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px;align-items:start;animation:nxrIn .2s">
+  <div style="display:flex;flex-direction:column;gap:2px"><sc-for list="{{ setTabs }}" as="t" hint-placeholder-count="6"><button onClick="{{ t.pick }}" style="text-align:left;font:inherit;padding:8px 10px;cursor:pointer;border:1px solid {{ t.bd }};background:{{ t.bg }};color:var(--color-text)" style-hover="background:var(--tint)">{{ t.label }}</button></sc-for></div>
+  <div class="card blueprint" style="grid-column:span 3;min-width:0"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+    <sc-if value="{{ st.profile }}" hint-placeholder-val="{{ true }}">
+      <div class="card-kicker">My profile</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px"><div class="field"><label>Full name</label><input class="input" value="{{ profile.name }}" onChange="{{ setProfile.name }}"></div><div class="field"><label>Email</label><input class="input" value="{{ profile.email }}" onChange="{{ setProfile.email }}"></div><div class="field"><label>Workspace</label><input class="input" value="{{ profile.workspace }}" onChange="{{ setProfile.workspace }}"></div></div>
+      <sc-if value="{{ emailErr }}" hint-placeholder-val="{{ false }}"><div style="font-size:12px;color:var(--color-accent-700)">Enter a valid email address.</div></sc-if>
+      <div><button class="btn btn-primary blueprint" onClick="{{ saveProfile }}"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>Save changes</button></div>
+    </sc-if>
+    <sc-if value="{{ st.ai }}" hint-placeholder-val="{{ false }}">
+      <div class="card-kicker">Task routing</div>
+      <sc-for list="{{ routing }}" as="r" hint-placeholder-count="3"><div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:4px 0"><span style="flex:1;min-width:160px">{{ r.task }}</span><select class="input" style="width:auto;min-width:200px" value="{{ r.val }}" onChange="{{ r.set }}"><sc-for list="{{ providerNames }}" as="p" hint-placeholder-count="3"><option value="{{ p }}">{{ p }}</option></sc-for></select></div></sc-for>
+      <div class="card-kicker" style="margin-top:10px">Provider keys · stored encrypted</div>
+      <sc-for list="{{ providers }}" as="p" hint-placeholder-count="3"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:4px 0"><span style="width:140px">{{ p.name }}</span><input class="input" type="password" style="flex:1;min-width:160px" placeholder="API key" value="{{ p.key }}" onChange="{{ p.set }}"><button class="btn btn-secondary" onClick="{{ p.test }}">{{ p.testLabel }}</button><span class="{{ p.cls }}" style="min-width:86px;justify-content:center">{{ p.status }}</span></div></sc-for>
+      <div style="font-size:12px;color:var(--muted)">Usage this month: 412k tokens · est. $6.80</div>
+      <div class="card-kicker" style="margin-top:10px">OpenRouter models</div>
+      <sc-if value="{{ orLocked }}" hint-placeholder-val="{{ true }}"><div style="color:var(--muted);font-size:13px">Add your OpenRouter key above and press Test to load the model list.</div></sc-if>
+      <sc-if value="{{ orReady }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><div class="seg"><sc-for list="{{ orTabs }}" as="t" hint-placeholder-count="3"><label class="seg-opt"><input type="radio" checked="{{ t.on }}" onChange="{{ t.pick }}"><span>{{ t.label }}</span></label></sc-for></div><span style="font-size:12px;color:var(--muted);flex:1;min-width:200px">Sample data. The real list, pricing and availability load live from OpenRouter and can change, including free models.</span></div>
+        <div style="overflow-x:auto"><table class="table"><thead><tr><th>Model</th><th>Context</th><th>Price / 1M tokens</th><th>Status</th><th></th></tr></thead><tbody>
+          <sc-for list="{{ orModels }}" as="m" hint-placeholder-count="5"><tr><td style="min-width:200px"><div style="font-weight:500">{{ m.name }}</div><div style="font-size:12px;color:var(--muted)">{{ m.id }}</div></td><td>{{ m.ctx }}</td><td style="white-space:nowrap"><span class="{{ m.priceCls }}">{{ m.price }}</span></td><td>{{ m.status }}</td><td><button class="btn btn-secondary" disabled="{{ m.disabled }}" onClick="{{ m.pick }}">{{ m.pickLabel }}</button></td></tr></sc-for>
+        </tbody></table></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
+          <div class="field"><label>Fallback model</label><select class="input" value="{{ orFallback }}" onChange="{{ setOrFallback }}"><option value="">None — show the error</option><sc-for list="{{ orFallbackOpts }}" as="o" hint-placeholder-count="3"><option value="{{ o.id }}">{{ o.name }}</option></sc-for></select></div>
+          <div class="field"><label>Monthly spend limit (USD)</label><input class="input" type="number" value="{{ orBudget }}" onChange="{{ setOrBudget }}"></div>
+        </div>
+        <div style="font-size:12px;color:var(--muted)">The fallback is used only when the default fails (rate limit, no credits, model unavailable). You are told each time, and your default is never changed.</div>
+      </sc-if>
+    </sc-if>
+    <sc-if value="{{ st.security }}" hint-placeholder-val="{{ false }}">
+      <div class="card-kicker">Security</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><div><div style="font-weight:500">Multi-factor authentication</div><div style="font-size:12px;color:var(--muted)">Authenticator app code at sign-in</div></div><button onClick="{{ toggleMfa }}" style="flex:none;width:36px;height:20px;border:1px solid var(--color-divider);background:{{ mfaSw.bg }};position:relative;cursor:pointer;padding:0"><span style="position:absolute;top:2px;left:{{ mfaSw.x }};width:14px;height:14px;background:{{ mfaSw.k }};transition:left .15s"></span></button></div>
+      <div class="card-kicker" style="margin-top:10px">Active sessions</div>
+      <sc-for list="{{ sessions }}" as="s" hint-placeholder-count="3"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line2)"><div><div>{{ s.device }}</div><div style="font-size:12px;color:var(--muted)">{{ s.meta }}</div></div><sc-if value="{{ s.canRevoke }}" hint-placeholder-val="{{ true }}"><button class="btn btn-ghost" onClick="{{ s.revoke }}">Revoke</button></sc-if></div></sc-for>
+    </sc-if>
+    <sc-if value="{{ st.sync }}" hint-placeholder-val="{{ false }}">
+      <div class="card-kicker">Hosting · Hybrid</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px"><div class="field"><label>Cloud region</label><select class="input" value="{{ region }}" onChange="{{ setRegion }}"><option value="Singapore">Singapore</option><option value="Frankfurt">Frankfurt</option><option value="Virginia">Virginia</option></select></div><div class="field"><label>Self-hosted endpoint (optional)</label><input class="input" placeholder="https://nexora.yourcompany.com" value="{{ endpoint }}" onChange="{{ setEndpoint }}"></div></div>
+      <div class="card-kicker" style="margin-top:10px">Desktop sync · Hybrid</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><div><div style="font-weight:500">Offline cache</div><div style="font-size:12px;color:var(--muted)">Leads, drafts and notes stay editable without a connection</div></div><button onClick="{{ toggleCache }}" style="flex:none;width:36px;height:20px;border:1px solid var(--color-divider);background:{{ cacheSw.bg }};position:relative;cursor:pointer;padding:0"><span style="position:absolute;top:2px;left:{{ cacheSw.x }};width:14px;height:14px;background:{{ cacheSw.k }};transition:left .15s"></span></button></div>
+      <div class="field"><label>When offline and cloud edits conflict</label><div style="display:flex;flex-direction:column;gap:4px"><sc-for list="{{ conflictOpts }}" as="o" hint-placeholder-count="3"><label class="radio"><input type="radio" checked="{{ o.on }}" onChange="{{ o.pick }}"><span class="dot"></span>{{ o.label }}</label></sc-for></div></div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button class="btn btn-secondary" onClick="{{ backupNow }}">Back up now</button><span style="font-size:12px;color:var(--muted)">Last backup: {{ lastBackup }}</span></div>
+    </sc-if>
+    <sc-if value="{{ st.license }}" hint-placeholder-val="{{ false }}">
+      <div class="card-kicker">License</div>
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><div><div style="font-weight:500">Professional · $29 / month</div><div style="font-size:12px;color:var(--muted)">Renews 23 December 2026 · 1 of 1 device active · key {{ licMasked }}</div></div><span class="tag tag-accent" style="align-self:center">Active</span></div>
+      <sc-for list="{{ devices }}" as="d" hint-placeholder-count="2"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line2)"><div><div>{{ d.name }}</div><div style="font-size:12px;color:var(--muted)">{{ d.meta }}</div></div><button class="btn btn-ghost" onClick="{{ d.remove }}">Deactivate</button></div></sc-for>
+      <div style="font-size:12px;color:var(--muted)">{{ graceNote }}</div>
+      <div style="font-size:12px;color:var(--muted)">To move the license, deactivate here, then activate on the new device. A transfer from the new device needs email verification.</div>
+      <div class="card-kicker" style="margin-top:10px">License events</div>
+      <sc-for list="{{ licEvents }}" as="e" hint-placeholder-count="2"><div style="display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid var(--line2)"><span>{{ e.text }}</span><span style="font-size:12px;color:var(--muted);white-space:nowrap">{{ e.time }}</span></div></sc-for>
+    </sc-if>
+    <sc-if value="{{ st.appearance }}" hint-placeholder-val="{{ false }}">
+      <div class="card-kicker">Appearance</div>
+      <div class="field"><label>Theme</label><div class="seg"><sc-for list="{{ themeTabs }}" as="t" hint-placeholder-count="2"><label class="seg-opt"><input type="radio" checked="{{ t.on }}" onChange="{{ t.pick }}"><span>{{ t.label }}</span></label></sc-for></div></div>
+      <div class="field"><label>Sidebar</label><div class="seg"><sc-for list="{{ sideTabs }}" as="t" hint-placeholder-count="2"><label class="seg-opt"><input type="radio" checked="{{ t.on }}" onChange="{{ t.pick }}"><span>{{ t.label }}</span></label></sc-for></div></div>
+    </sc-if>
+  </div>
+</div>
+</sc-if>
+
+    </main>
+  </div>
+</div>
+
+<sc-if value="{{ dialogOpen }}" hint-placeholder-val="{{ false }}">
+<div class="dialog-backdrop" style="z-index:50"><div class="dialog blueprint" style="background:var(--color-bg)"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+  <div class="dialog-title">{{ dialog.title }}</div><div class="dialog-body">{{ dialog.body }}</div>
+  <sc-if value="{{ dialogHasField }}" hint-placeholder-val="{{ false }}"><div class="field"><label>{{ dialog.field }}</label><input class="input" type="password" value="{{ dialogVal }}" onChange="{{ setDialogVal }}"></div></sc-if>
+  <sc-if value="{{ dialogErr }}" hint-placeholder-val="{{ false }}"><div style="font-size:12px;color:var(--color-accent-700)">Enter a key to continue.</div></sc-if>
+  <div class="dialog-actions"><button class="btn btn-secondary" onClick="{{ closeDialog }}">Cancel</button><button class="btn btn-primary blueprint" onClick="{{ confirmDialog }}"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>{{ dialog.confirm }}</button></div>
+</div></div>
+</sc-if>
+<sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+<div style="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:60;padding:10px 16px;background:var(--color-text);color:var(--color-bg);font-size:13px;box-shadow:var(--shadow-lg);animation:nxrIn .2s">{{ toast }}</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;startScreen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dashboard&quot;,&quot;ai&quot;,&quot;content&quot;,&quot;inbox&quot;,&quot;automation&quot;,&quot;integrations&quot;,&quot;settings&quot;],&quot;default&quot;:&quot;dashboard&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;defaultPlatform&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;web&quot;,&quot;windows&quot;,&quot;macos&quot;,&quot;linux&quot;,&quot;android&quot;],&quot;default&quot;:&quot;web&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;defaultTheme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light'|'dark'&quot;},&quot;startActivated&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  static P = {
+    dashboard: 'M3 3h7v9H3z|M14 3h7v5h-7z|M14 12h7v9h-7z|M3 16h7v5H3z',
+    ai: 'M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z|M20 2v4|M22 4h-4',
+    content: 'M12 20h9|M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z',
+    inbox: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z',
+    automation: 'M3 3h7v7H3z|M14 14h7v7h-7z|M6.5 10v4a3.5 3.5 0 0 0 3.5 3.5h4',
+    integrations: 'M12 22v-5|M9 8V2|M15 8V2|M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z',
+    settings: 'M21 4h-7|M10 4H3|M21 12h-9|M8 12H3|M21 20h-5|M12 20H3|M14 2v4|M8 10v4|M16 18v4',
+    sun: 'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z|M12 2v2|M12 20v2|M4.93 4.93l1.41 1.41|M17.66 17.66l1.41 1.41|M2 12h2|M20 12h2|M6.34 17.66l-1.41 1.41|M19.07 4.93l-1.41 1.41',
+    moon: 'M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z', panel: 'M3 3h18v18H3z|M9 3v18', x: 'M18 6 6 18|M6 6l12 12',
+    minus: 'M5 12h14', square: 'M5 5h14v14H5z', globe: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z|M2 12h20|M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20'
+  };
+  state = {
+    screen: this.props.startScreen ?? 'dashboard', theme: this.props.defaultTheme ?? 'light', platform: ({ desktop: 'windows' })[this.props.defaultPlatform] ?? this.props.defaultPlatform ?? 'web',
+    collapsed: false, online: true, syncing: false, pending: 0, toast: '', dialog: null, dialogVal: '', dialogErr: false,
+    range: '7d', customizing: false, widgets: { kpi: true, perf: true, funnel: true, tasks: true, ai: true, activity: true, health: true },
+    tasks: [{ id: 1, text: 'Follow up with Sarah Johnson', due: 'Today', done: false }, { id: 2, text: 'Publish “3 outreach mistakes” manually', due: 'Tue', done: false }, { id: 3, text: 'Review AI drafts awaiting approval', due: 'Wed', done: false }],
+    activity: [{ text: 'Workflow “Score new leads” ran 12 times', time: '09:12' }, { text: 'Post “Brand voice checklist” published', time: '08:40' }, { text: 'HubSpot sync completed', time: '08:05' }, { text: '48 leads imported from CSV', time: 'Yesterday' }],
+    aiTab: 'scoring', icp: { industry: 'Marketing', title: 'Founder, CEO', sizeMin: '10', sizeMax: '100', location: 'United States' }, selLead: 1,
+    leads: [
+      { id: 1, name: 'John Smith', title: 'Founder', company: 'Brightlane Media', industry: 'Marketing & Advertising', size: 42, country: 'United States' },
+      { id: 2, name: 'Sarah Johnson', title: 'CEO', company: 'Peak Digital', industry: 'Marketing', size: 130, country: 'United States' },
+      { id: 3, name: 'David Miller', title: 'Head of Growth', company: 'Orbit Labs', industry: 'Software', size: 60, country: 'Canada' },
+      { id: 4, name: 'Priya Nair', title: 'Founder & CEO', company: 'Signal Works', industry: 'Marketing', size: null, country: 'United States' },
+      { id: 5, name: 'Tom Becker', title: 'Marketing Director', company: 'Kiln Studio', industry: null, size: 18, country: 'Germany' },
+      { id: 6, name: 'Aisha Rahman', title: 'CEO', company: 'Delta Reach', industry: 'Marketing', size: 75, country: null }
+    ],
+    chat: [{ me: false, text: 'Hi Rafiq. Ask me about lead scores, post drafts or reply suggestions. I only use data in this workspace.' }], chatInput: '', thinking: false, genCount: 14,
+    prompts: [{ id: 1, title: 'Top leads today', text: 'Which leads score highest against my target criteria?' }, { id: 2, title: 'Post idea', text: 'Suggest a post hook for marketing agency founders.' }, { id: 3, title: 'Inbox triage', text: 'Which replies should I answer first?' }],
+    npTitle: '', npText: '', npErr: false,
+    csTab: 'gen', topic: '', audience: 'marketing agency founders', tone: 'Direct', gen: null, generating: false, topicErr: false, variant: 0,
+    posts: [
+      { id: 1, title: '3 outreach mistakes agencies make', body: 'Most agencies pitch before they listen.', status: 'Scheduled', day: 1 },
+      { id: 2, title: 'Why lead scoring beats list size', body: 'A list of 500 means little without fit.', status: 'In review', day: null },
+      { id: 3, title: '14 calls from 200 leads', body: 'What we changed in the follow-up plan.', status: 'Draft', day: null },
+      { id: 4, title: 'Brand voice checklist', body: 'Five questions to keep every post consistent.', status: 'Published', day: 0 }
+    ],
+    convFilter: 'all', convSearch: '', activeConv: 1, draft: '', note: '',
+    convs: [
+      { id: 1, name: 'John Smith', company: 'Brightlane Media', channel: 'Email', unread: true, important: true, intent: 'Pricing request', sentiment: 'Positive', suggestion: 'Thanks John — happy to share pricing. Would a 20-minute call on Thursday work to match a plan to your team size?', msgs: [{ me: false, text: 'Hello! Can you share your pricing?', time: '09:02' }], notes: ['Asked about team plan last month.'] },
+      { id: 2, name: 'Sarah Johnson', company: 'Peak Digital', channel: 'Manual import', unread: true, important: false, intent: 'Information request', sentiment: 'Neutral', suggestion: 'Hi Sarah — here is a short overview of how we work with agencies. Which service matters most to you right now?', msgs: [{ me: true, text: 'Hi Sarah, thanks for connecting.', time: 'Fri' }, { me: false, text: 'Please share details about your services.', time: '08:47' }], notes: [] },
+      { id: 3, name: 'David Miller', company: 'Orbit Labs', channel: 'WhatsApp', unread: false, important: false, intent: 'Meeting', sentiment: 'Positive', suggestion: 'Great — I have Wednesday 3pm or Thursday 11am open. Which suits you?', msgs: [{ me: false, text: 'Let’s schedule a call.', time: 'Yesterday' }], notes: [] }
+    ],
+    activeWf: 1, runs: [],
+    workflows: [
+      { id: 1, name: 'Score and draft for new leads', on: true, steps: [{ type: 'Trigger', label: 'Lead created' }, { type: 'Condition', label: 'Lead score greater than 70' }, { type: 'Action', label: 'Create AI message draft' }, { type: 'Approval', label: 'Request user approval' }, { type: 'Update', label: 'Change lead status to Contacted' }] },
+      { id: 2, name: 'Follow-up reminder', on: true, steps: [{ type: 'Trigger', label: 'Reply received' }, { type: 'Delay', label: 'Wait 24 hours' }, { type: 'Notification', label: 'Notify assigned user' }] },
+      { id: 3, name: 'Weekly content review', on: false, steps: [{ type: 'Trigger', label: 'Every Monday 09:00' }, { type: 'Notification', label: 'Notify workspace of drafts in review' }] }
+    ],
+    cat: 'All', testing: null,
+    integrations: [
+      { id: 'li', name: 'LinkedIn', cat: 'Social', desc: 'Official OAuth. Approved scopes only.', oauth: true, connected: false },
+      { id: 'oa', name: 'OpenAI', cat: 'AI', desc: 'Text and image generation.', connected: true },
+      { id: 'ge', name: 'Google Gemini', cat: 'AI', desc: 'Content generation and research.', connected: true },
+      { id: 'cl', name: 'Anthropic Claude', cat: 'AI', desc: 'Reply suggestions and analysis.', connected: false },
+      { id: 'or', name: 'OpenRouter', cat: 'AI', desc: 'Bring your own key. Free and paid models from many providers.', connected: false },
+      { id: 'hs', name: 'HubSpot', cat: 'CRM', desc: 'Two-way contact sync.', oauth: true, connected: true },
+      { id: 'sf', name: 'Salesforce', cat: 'CRM', desc: 'Lead and account sync.', oauth: true, connected: false },
+      { id: 'n8', name: 'n8n', cat: 'Automation', desc: 'Trigger external workflows by webhook.', connected: false },
+      { id: 'wa', name: 'WhatsApp Cloud API', cat: 'Communication', desc: 'Approved business messaging channel.', connected: true },
+      { id: 'gc', name: 'Google Calendar', cat: 'Communication', desc: 'Meeting and follow-up scheduling.', oauth: true, connected: false },
+      { id: 'wh', name: 'Webhooks', cat: 'Developer', desc: 'Signed events for leads, posts and runs.', connected: false }
+    ],
+    setTab: 'profile', profile: { name: 'Rafiq Hasan', email: 'rafiq@northwind.example', workspace: 'Northwind Growth' }, emailErr: false,
+    routing: { 'Content generation': 'Google Gemini', 'Lead research': 'OpenAI', 'Reply suggestions': 'OpenAI' },
+    keys: { 'OpenAI': 'sk-demo-openai', 'Google Gemini': 'demo-gemini', 'Anthropic Claude': '', 'OpenRouter': '' }, orDefault: 'openai/gpt-4o-mini', orFallback: '', orBudget: '20', orFilter: 'all',
+    lic: this.props.startActivated ? { key: 'NXR-VALID-0001', device: 'RAFIQ-WORKSTATION · Windows 11', at: '2 Nov 2026' } : null, licKey: '', licMsg: null, activating: false, licStep: '', licCode: '', licCodeErr: false, licEvents: [], keyOk: { 'OpenAI': true, 'Google Gemini': true }, keyTesting: null,
+    mfa: true, cache: true, conflict: 'ask', region: 'Singapore', endpoint: '', lastBackup: 'Today 03:00',
+    sessions: [{ id: 1, device: 'Windows desktop app · this device', meta: 'Dhaka · active now', current: true }, { id: 2, device: 'Chrome on Windows', meta: 'Dhaka · 2 hours ago' }, { id: 3, device: 'Edge on Windows', meta: 'Chattogram · 3 days ago' }],
+    devices: [{ id: 1, name: 'RAFIQ-WORKSTATION', meta: 'Windows 11 · activated 2 Nov 2026' }, { id: 2, name: 'RAFIQ-LAPTOP', meta: 'Windows 10 · activated 14 Nov 2026' }]
+  };
+  componentDidUpdate(prev) {
+    const p = this.props, u = {};
+    if (p.startScreen !== prev.startScreen && p.startScreen) u.screen = p.startScreen;
+    if (p.defaultTheme !== prev.defaultTheme && p.defaultTheme) u.theme = p.defaultTheme;
+    if (p.defaultPlatform !== prev.defaultPlatform && p.defaultPlatform) u.platform = p.defaultPlatform === 'desktop' ? 'windows' : p.defaultPlatform;
+    if (p.startActivated !== prev.startActivated) u.lic = p.startActivated ? { key: 'NXR-VALID-0001', device: 'RAFIQ-WORKSTATION · Windows 11', at: '2 Nov 2026' } : null;
+    if (Object.keys(u).length) this.setState(u);
+  }
+  componentWillUnmount() { clearTimeout(this._t); }
+  ic(n, s) { s = s || 16; return React.createElement('svg', { width: s, height: s, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.5, strokeLinecap: 'round', strokeLinejoin: 'round', style: { display: 'block' } }, Component.P[n].split('|').map((d, i) => React.createElement('path', { key: i, d }))); }
+  offline() { return this.state.platform !== 'web' && !this.state.online; }
+  toast(msg) { clearTimeout(this._t); this.setState({ toast: msg }); this._t = setTimeout(() => this.setState({ toast: '' }), 2600); }
+  act(msg) {
+    const off = this.offline();
+    this.setState(s => ({ pending: off ? s.pending + 1 : s.pending, activity: [{ text: msg, time: 'Just now' }, ...s.activity].slice(0, 6) }));
+    this.toast(off ? msg + ' · saved locally, will sync' : msg);
+  }
+  needsNet() { if (this.offline()) { this.toast('AI needs a connection. Go online to continue.'); return true; } return false; }
+  score(l) {
+    const c = this.state.icp, has = v => v !== null && v !== undefined && v !== '', lc = v => String(v).toLowerCase().trim();
+    const ind = has(l.industry) ? (lc(c.industry) && lc(l.industry).includes(lc(c.industry)) ? 25 : 0) : null;
+    const ts = lc(c.title).split(/[,/]/).map(s => s.trim()).filter(Boolean);
+    const tit = has(l.title) ? (ts.some(t => lc(l.title).includes(t)) ? 25 : 0) : null;
+    const mn = +c.sizeMin || 0, mx = +c.sizeMax || 1e9;
+    const siz = has(l.size) ? (l.size >= mn && l.size <= mx ? 20 : (l.size >= mn * 0.5 && l.size <= mx * 2 ? 12 : 4)) : null;
+    const loc = has(l.country) ? (lc(c.location) && lc(l.country).includes(lc(c.location)) ? 20 : 0) : null;
+    const raw = [['Industry match', ind, 25, l.industry], ['Job title match', tit, 25, l.title], ['Company size', siz, 20, has(l.size) ? l.size + ' employees' : null], ['Location', loc, 20, l.country]];
+    const total = Math.round(raw.reduce((a, p) => a + (p[1] || 0), 0) / 90 * 100);
+    return { total, conf: Math.round(raw.filter(p => p[1] !== null).length / 4 * 10), label: total >= 75 ? 'High match' : total >= 50 ? 'Medium match' : 'Low match',
+      parts: raw.map(p => ({ name: p[0], found: p[1] === null ? 'Not available — not guessed' : 'Found: ' + p[3], pts: p[1] === null ? '— / ' + p[2] : p[1] + ' / ' + p[2] })) };
+  }
+  ranked() { return this.state.leads.map(l => ({ ...l, sc: this.score(l) })).sort((a, b) => b.sc.total - a.sc.total); }
+  reply(q) {
+    const s = q.toLowerCase(), top = this.ranked()[0], unread = this.state.convs.filter(c => c.unread);
+    if (/score|lead|prospect/.test(s)) return 'Highest match right now is ' + top.name + ' at ' + top.company + ' (' + top.sc.total + '/100, confidence ' + top.sc.conf + '/10). Open Lead scoring to see what was found and what is missing.';
+    if (/post|content|hook/.test(s)) return 'Try a hook built on one specific number from your own results, then one lesson and one question. Content Studio can draft it — it stays a draft until you approve it.';
+    if (/reply|repl|message|inbox|answer/.test(s)) return unread.length ? 'You have ' + unread.length + ' unread. Start with ' + unread[0].name + ' — intent: ' + unread[0].intent.toLowerCase() + '.' : 'Inbox is clear. No unread conversations.';
+    return 'I can help with lead scoring, post drafts and reply suggestions. I flag missing data rather than guessing.';
+  }
+  makePost(v) {
+    const { topic, audience, tone } = this.state, t = topic.trim(), a = audience.trim() || 'your buyers';
+    const hooks = { Direct: ['Most ' + a + ' get ' + t + ' wrong. Here is the fix.', 'Stop overthinking ' + t + '. Do this instead.'], Story: ['Last quarter we nearly gave up on ' + t + '.', 'One client question about ' + t + ' changed our process.'], Data: ['We reviewed 200 conversations about ' + t + '. One pattern stood out.', '3 numbers that changed how we approach ' + t + '.'] };
+    const bodies = { Direct: '1. Start with the other person’s problem, not your offer.\n2. Keep the first message under 60 words.\n3. Ask one question that is easy to answer.\n\nThat is the whole playbook for ' + t + '.', Story: 'We had done everything “right” and still heard nothing back.\n\nThen we rewrote our approach to ' + t + ' around one idea: be useful before being visible.\n\nReplies came back within the week.', Data: '• Messages under 60 words got more replies.\n• A specific question outperformed a generic pitch.\n• A second follow-up mattered more than the first message.\n\nFor ' + a + ', ' + t + ' is a process, not a talent.' };
+    return { hook: hooks[tone][v % 2], body: bodies[tone], cta: 'What has worked for you with ' + t + '?', tags: '#' + t.replace(/[^a-zA-Z0-9 ]/g, '').split(' ').filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase() + w.slice(1)).join('') + ' #B2BMarketing #LinkedInGrowth' };
+  }
+  renderVals() {
+    const s = this.state, set = o => this.setState(o), inp = k => e => set({ [k]: e.target.value });
+    const tabs = (key, arr) => arr.map(([id, label]) => ({ label, on: s[key] === id, pick: () => set({ [key]: id }) }));
+    const sw = on => ({ bg: on ? 'var(--color-accent)' : 'transparent', x: on ? '18px' : '2px', k: on ? 'var(--color-bg)' : 'var(--muted)' });
+    const nested = (key, fields) => Object.fromEntries(fields.map(f => [f, e => { const v = e.target.value; this.setState(st => ({ [key]: { ...st[key], [f]: v } })); }]));
+    const stCls = st => 'tag ' + ({ Draft: 'tag-neutral', 'In review': 'tag-outline', Approved: 'tag-accent', Scheduled: 'tag-accent', Published: 'tag-neutral', Completed: 'tag-accent', 'Awaiting approval': 'tag-outline' }[st] || 'tag-neutral');
+    const off = this.offline(), desktop = s.platform !== 'web', OS = { web: ['Web', 'Chrome on Windows · this browser'], windows: ['Windows 11', 'RAFIQ-WORKSTATION · Windows 11'], macos: ['macOS 15', 'RAFIQ-MACBOOK · macOS 15'], linux: ['Ubuntu 24.04', 'RAFIQ-THINKPAD · Ubuntu 24.04'], android: ['Android 15', 'RAFIQ-PIXEL · Android 15'] }[s.platform];
+    const confirm = (title, body, label, run, field) => set({ dialog: { title, body, confirm: label, run, field: field || '' }, dialogVal: '', dialogErr: false });
+    const ic = {}; ['globe', 'minus', 'square', 'x', 'panel'].forEach(n => ic[n] = this.ic(n, n === 'panel' ? 16 : 14));
+    const titles = { dashboard: 'Dashboard', ai: 'AI Intelligence', content: 'Content Studio', inbox: 'Communication', automation: 'Automation', integrations: 'Integrations', settings: 'Settings' };
+    const unread = s.convs.filter(c => c.unread).length, sched = s.posts.filter(p => p.status === 'Scheduled').length, activeWfs = s.workflows.filter(f => f.on).length;
+    const nav = Object.keys(titles).map(id => { const on = s.screen === id, badge = id === 'inbox' ? unread : 0;
+      return { label: titles[id], icon: this.ic(id, 18), go: () => set({ screen: id }), bg: on ? 'var(--tint)' : 'transparent', bd: on ? 'var(--color-divider)' : 'transparent', fg: on ? 'var(--color-accent-700)' : 'var(--color-text)', badge, showBadge: badge > 0 && !s.collapsed }; });
+    const R = { '7d': { m: 1, l: ['M', 'T', 'W', 'T', 'F', 'S', 'S'], v: [3, 5, 2, 6, 4, 1, 2], name: 'Last 7 days' }, '30d': { m: 4.6, l: ['W1', 'W2', 'W3', 'W4'], v: [18, 24, 15, 20], name: 'Last 30 days' }, '90d': { m: 14, l: ['Sep', 'Oct', 'Nov'], v: [71, 88, 82], name: 'Last 90 days' } }[s.range];
+    const mx = Math.max(...R.v), fv = [64, 41, 17, 6].map(v => Math.round(v * R.m));
+    const wl = { kpi: 'KPI cards', perf: 'Replies chart', funnel: 'Lead funnel', tasks: 'Tasks', ai: 'AI activity', activity: 'Recent activity', health: 'System health' };
+    const rk = this.ranked(), selL = rk.find(l => l.id === s.selLead) || rk[0];
+    const days = ['Mon 23', 'Tue 24', 'Wed 25', 'Thu 26', 'Fri 27', 'Sat 28', 'Sun 29'];
+    const upPost = (id, o, msg) => { this.setState(st => ({ posts: st.posts.map(p => p.id === id ? { ...p, ...o } : p) })); if (msg) this.act(msg); };
+    const postAct = p => ({ Draft: ['Request review', () => upPost(p.id, { status: 'In review' }, 'Review requested for “' + p.title + '”')], 'In review': ['Approve', () => upPost(p.id, { status: 'Approved' }, 'Post approved')],
+      Approved: ['Schedule', () => { const d = [1, 2, 3, 4, 5, 6].sort((a, b) => s.posts.filter(x => x.day === a).length - s.posts.filter(x => x.day === b).length)[0]; upPost(p.id, { status: 'Scheduled', day: d }, 'Scheduled for ' + days[d]); }],
+      Scheduled: ['Mark published', () => upPost(p.id, { status: 'Published' }, 'Marked as published')] }[p.status]);
+    const move = (p, d) => () => { const n = Math.min(6, Math.max(0, p.day + d)); if (n !== p.day) upPost(p.id, { day: n }, 'Moved to ' + days[n]); };
+    const conv = s.convs.find(c => c.id === s.activeConv) || s.convs[0];
+    const upConv = (o, fn) => this.setState(st => ({ convs: st.convs.map(c => c.id === conv.id ? (fn ? fn(c) : { ...c, ...o }) : c) }));
+    const q = s.convSearch.toLowerCase();
+    const convs = s.convs.filter(c => (s.convFilter === 'all' || (s.convFilter === 'unread' && c.unread) || (s.convFilter === 'important' && c.important)) && (c.name + c.company).toLowerCase().includes(q));
+    const wf = s.workflows.find(f => f.id === s.activeWf) || s.workflows[0];
+    const upWf = fn => this.setState(st => ({ workflows: st.workflows.map(f => f.id === wf.id ? fn(f) : f) }));
+    const defaults = { Condition: 'Lead score greater than 70', Action: 'Create AI message draft', Delay: 'Wait 24 hours', Approval: 'Request user approval', Notification: 'Notify workspace', Update: 'Change lead status', Stop: 'End workflow' };
+    const upInt = (id, o) => this.setState(st => ({ integrations: st.integrations.map(g => g.id === id ? { ...g, ...o } : g) }));
+    const sendChat = () => { const t = s.chatInput.trim(); if (!t || this.needsNet()) return; set({ chat: [...s.chat, { me: true, text: t }], chatInput: '', thinking: true });
+      setTimeout(() => this.setState(st => ({ thinking: false, chat: [...st.chat, { me: false, text: this.reply(t) }] })), 700); };
+    const addNote = () => { const t = s.note.trim(); if (!t) return; upConv(null, c => ({ ...c, notes: [...c.notes, t] })); set({ note: '' }); this.act('Note added to ' + conv.name); };
+    const generate = () => { if (!s.topic.trim()) return set({ topicErr: true }); if (this.needsNet()) return; set({ generating: true, topicErr: false });
+      setTimeout(() => this.setState(st => ({ generating: false, gen: this.makePost(st.variant), variant: st.variant + 1, genCount: st.genCount + 1 })), 800); };
+    return {
+      theme: s.theme, platform: s.platform, isWeb: !desktop, isDesktop: desktop, isWin: s.platform === 'windows', isMac: s.platform === 'macos', isLinux: s.platform === 'linux', isAndroid: s.platform === 'android', frameMax: s.platform === 'android' ? '412px' : 'none', asideDisplay: s.platform === 'android' ? 'none' : 'flex', osLabel: s.platform === 'android' ? 'v1.0.0 · Rust core' : 'v1.0.0 · Rust core · ' + OS[0], url: 'app.nexora.ai/' + s.screen, title: titles[s.screen], ic,
+      sideW: s.collapsed ? '54px' : '212px', showLabels: !s.collapsed, nav, toggleSide: () => set({ collapsed: !s.collapsed }),
+      syncDot: off ? 'var(--muted)' : 'var(--color-accent)', syncLabel: s.syncing ? 'Syncing…' : off ? 'Offline · ' + s.pending + ' pending' : desktop ? 'Synced with cloud' : 'Live',
+      onlineBtn: off ? 'Go online' : 'Go offline',
+      toggleOnline: () => { if (s.online) { set({ online: false }); this.toast('Working offline. Changes are queued locally.'); } else { const n = s.pending; set({ online: true, syncing: true }); setTimeout(() => { this.setState({ syncing: false, pending: 0 }); this.toast(n ? n + ' change' + (n > 1 ? 's' : '') + ' synced to cloud' : 'Back online'); }, 1100); } },
+      platformTabs: tabs('platform', [['web', 'Web'], ['windows', 'Windows'], ['macos', 'macOS'], ['linux', 'Linux'], ['android', 'Android']]), themeIcon: this.ic(s.theme === 'dark' ? 'sun' : 'moon'), toggleTheme: () => set({ theme: s.theme === 'dark' ? 'light' : 'dark' }),
+      isDash: s.screen === 'dashboard', isAi: s.screen === 'ai', isContent: s.screen === 'content', isInbox: s.screen === 'inbox', isAuto: s.screen === 'automation', isInteg: s.screen === 'integrations', isSettings: s.screen === 'settings',
+      rangeLabel: R.name, rangeTabs: tabs('range', [['7d', '7 days'], ['30d', '30 days'], ['90d', '90 days']]), customizing: s.customizing, customLabel: s.customizing ? 'Done' : 'Customize', toggleCustom: () => set({ customizing: !s.customizing }),
+      widgetChips: Object.keys(wl).map(k => ({ label: wl[k], mark: s.widgets[k] ? '✓' : '+', bg: s.widgets[k] ? 'var(--tint)' : 'transparent', toggle: () => set({ widgets: { ...s.widgets, [k]: !s.widgets[k] } }) })), w: s.widgets,
+      kpis: [{ label: 'New leads', value: fv[0], meta: 'Open lead scoring', go: () => set({ screen: 'ai', aiTab: 'scoring' }) }, { label: 'Unread conversations', value: unread, meta: 'Open inbox', go: () => set({ screen: 'inbox' }) }, { label: 'Scheduled posts', value: sched, meta: 'Open calendar', go: () => set({ screen: 'content', csTab: 'cal' }) }, { label: 'Active workflows', value: activeWfs, meta: 'Open automation', go: () => set({ screen: 'automation' }) }],
+      bars: R.v.map((v, i) => ({ v, l: R.l[i], h: Math.round(v / mx * 100) + '%' })), funnel: ['New', 'Contacted', 'Interested', 'Converted'].map((l, i) => ({ l, v: fv[i], w: Math.round(fv[i] / fv[0] * 100) + '%' })),
+      tasks: s.tasks.map(t => ({ ...t, deco: t.done ? 'line-through' : 'none', op: t.done ? 0.5 : 1, toggle: () => this.setState(st => ({ tasks: st.tasks.map(x => x.id === t.id ? { ...x, done: !x.done } : x) })) })), noTasks: !s.tasks.length,
+      aiStats: [{ l: 'Posts generated', v: s.genCount }, { l: 'Assistant messages', v: s.chat.length }, { l: 'Drafts awaiting approval', v: s.posts.filter(p => p.status === 'In review').length + s.runs.filter(r => r.status === 'Awaiting approval').length }],
+      activity: s.activity,
+      health: [{ l: 'API', v: off ? 'Unreachable' : 'Operational' }, { l: 'Background workers', v: off ? 'Paused' : 'Running' }, { l: 'Sync', v: s.pending ? s.pending + ' pending' : 'Up to date' }].map(h => ({ ...h, cls: 'tag ' + (/Oper|Run|Up/.test(h.v) ? 'tag-accent' : 'tag-outline') })),
+      aiTabs: tabs('aiTab', [['scoring', 'Lead scoring'], ['chat', 'AI assistant'], ['prompts', 'Prompt library']]), aiScoring: s.aiTab === 'scoring', aiChat: s.aiTab === 'chat', aiPrompts: s.aiTab === 'prompts',
+      icp: s.icp, setIcp: nested('icp', ['industry', 'title', 'sizeMin', 'sizeMax', 'location']),
+      ranked: rk.map(l => ({ name: l.name, sub: l.title + ' · ' + l.company, total: l.sc.total, conf: l.sc.conf, bg: l.id === selL.id ? 'var(--tint)' : 'transparent', pick: () => set({ selLead: l.id }) })),
+      sel: { name: selL.name, ...selL.sc },
+      draftForSel: () => { if (this.needsNet()) return; const first = selL.name.split(' ')[0]; set({ screen: 'ai', aiTab: 'chat', chat: [...s.chat, { me: true, text: 'Draft a first message for ' + selL.name }, { me: false, text: 'Draft (needs your approval):\n\nHi ' + first + ' — I saw ' + selL.company + ' is growing' + (selL.industry ? ' in ' + selL.industry.toLowerCase() : '') + '. We help teams like yours turn outreach into booked conversations. Open to a quick exchange of notes?' }] }); },
+      chatProvider: s.routing['Reply suggestions'], chat: s.chat.map(m => ({ text: m.text, align: m.me ? 'flex-end' : 'flex-start', bg: m.me ? 'var(--tint)' : 'transparent' })), thinking: s.thinking,
+      chatInput: s.chatInput, setChatInput: inp('chatInput'), chatKey: e => { if (e.key === 'Enter') sendChat(); }, sendChat,
+      quickPrompts: s.prompts.map(p => ({ title: p.title, use: () => set({ chatInput: p.text }) })),
+      prompts: s.prompts.map(p => ({ ...p, use: () => set({ aiTab: 'chat', chatInput: p.text }), del: () => { set({ prompts: s.prompts.filter(x => x.id !== p.id) }); this.act('Prompt deleted'); } })), noPrompts: !s.prompts.length,
+      npTitle: s.npTitle, npText: s.npText, npErr: s.npErr, setNpTitle: inp('npTitle'), setNpText: inp('npText'),
+      addPrompt: () => { if (!s.npTitle.trim() || !s.npText.trim()) return set({ npErr: true }); set({ prompts: [...s.prompts, { id: Date.now(), title: s.npTitle.trim(), text: s.npText.trim() }], npTitle: '', npText: '', npErr: false }); this.act('Prompt saved'); },
+      csTabs: tabs('csTab', [['gen', 'Generator'], ['posts', 'Posts'], ['cal', 'Calendar']]), csGen: s.csTab === 'gen', csPosts: s.csTab === 'posts', csCal: s.csTab === 'cal',
+      topic: s.topic, setTopic: e => set({ topic: e.target.value, topicErr: false }), topicErr: s.topicErr, audience: s.audience, setAudience: inp('audience'), toneTabs: tabs('tone', [['Direct', 'Direct'], ['Story', 'Story'], ['Data', 'Data']]),
+      generating: s.generating, genLabel: s.generating ? 'Generating…' : 'Generate post', generate, hasGen: !!s.gen, noGen: !s.gen, gen: s.gen || {}, setGen: nested('gen', ['hook', 'body', 'cta', 'tags']),
+      saveDraft: () => { const g = s.gen; set({ posts: [{ id: Date.now(), title: g.hook, body: g.body + '\n\n' + g.cta + '\n' + g.tags, status: 'Draft', day: null }, ...s.posts], gen: null, topic: '', csTab: 'posts' }); this.act('Draft saved'); },
+      posts: s.posts.map(p => { const a = postAct(p); return { ...p, excerpt: p.body.split('\n')[0].slice(0, 70), cls: stCls(p.status), dayLabel: p.day === null ? '—' : days[p.day], hasAct: !!a, act: a ? a[0] : '', doAct: a ? a[1] : null,
+        del: () => confirm('Delete post?', '“' + p.title + '” will be removed from this workspace.', 'Delete', () => { this.setState(st => ({ posts: st.posts.filter(x => x.id !== p.id) })); this.act('Post deleted'); }) }; }),
+      calendar: days.map((label, i) => ({ label, bg: i === 0 ? 'var(--tint)' : 'transparent', posts: s.posts.filter(p => p.day === i).map(p => ({ title: p.title, status: p.status, cls: stCls(p.status), prev: move(p, -1), next: move(p, 1) })) })),
+      convSearch: s.convSearch, setConvSearch: inp('convSearch'), convTabs: tabs('convFilter', [['all', 'All'], ['unread', 'Unread'], ['important', 'Important']]), noConvs: !convs.length,
+      convs: convs.map(c => ({ name: c.name, channel: c.channel, preview: c.msgs[c.msgs.length - 1].text, fw: c.unread ? 700 : 500, bg: c.id === conv.id ? 'var(--tint)' : 'transparent', bd: c.id === conv.id ? 'var(--color-divider)' : 'var(--line2)', open: () => this.setState(st => ({ activeConv: c.id, draft: '', convs: st.convs.map(x => x.id === c.id ? { ...x, unread: false } : x) })) })),
+      conv: { ...conv, msgs: conv.msgs.map(m => ({ ...m, align: m.me ? 'flex-end' : 'flex-start', bg: m.me ? 'var(--tint)' : 'transparent' })) },
+      importantLabel: conv.important ? 'Unmark important' : 'Mark important', toggleImportant: () => upConv({ important: !conv.important }),
+      makeTask: () => { set({ tasks: [{ id: Date.now(), text: 'Follow up with ' + conv.name, due: 'Tomorrow', done: false }, ...s.tasks] }); this.act('Follow-up task created for ' + conv.name); },
+      useSuggestion: () => set({ draft: conv.suggestion }), savedReplies: [['Pricing overview', 'Thanks for asking — our plans start at $9 per month. I can send a one-page comparison if helpful.'], ['Book a call', 'Happy to walk you through it. Here are two slots: Wednesday 3pm or Thursday 11am.'], ['Send details', 'Sharing a short overview of our services below. Tell me which part is most relevant.']].map(r => ({ title: r[0], use: () => set({ draft: r[1] }) })),
+      draft: s.draft, setDraft: inp('draft'), draftEmpty: !s.draft.trim(),
+      sendMsg: () => { const t = s.draft.trim(); if (!t) return; upConv(null, c => ({ ...c, unread: false, msgs: [...c.msgs, { me: true, text: t, time: off ? 'Queued' : 'Now' }] })); set({ draft: '' }); this.act('Reply sent to ' + conv.name); },
+      note: s.note, setNote: inp('note'), addNote, noteKey: e => { if (e.key === 'Enter') addNote(); },
+      workflows: s.workflows.map(f => ({ name: f.name, meta: f.steps.length + ' steps · ' + (f.on ? 'Enabled' : 'Disabled'), sw: sw(f.on), bg: f.id === wf.id ? 'var(--tint)' : 'transparent', bd: f.id === wf.id ? 'var(--color-divider)' : 'var(--line2)', open: () => set({ activeWf: f.id }),
+        toggle: e => { e.stopPropagation(); this.setState(st => ({ workflows: st.workflows.map(x => x.id === f.id ? { ...x, on: !x.on } : x) })); this.act('“' + f.name + '” ' + (f.on ? 'disabled' : 'enabled')); } })),
+      newWf: () => { const id = Date.now(); set({ workflows: [...s.workflows, { id, name: 'Untitled workflow', on: false, steps: [{ type: 'Trigger', label: 'Lead created' }] }], activeWf: id }); },
+      wf: { name: wf.name, steps: wf.steps.map((st, i) => ({ ...st, n: i + 1, canDel: i > 0, set: e => { const v = e.target.value; upWf(f => ({ ...f, steps: f.steps.map((x, j) => j === i ? { ...x, label: v } : x) })); }, del: () => upWf(f => ({ ...f, steps: f.steps.filter((x, j) => j !== i) })) })) },
+      setWfName: e => { const v = e.target.value; upWf(f => ({ ...f, name: v })); },
+      stepTypes: Object.keys(defaults).map(type => ({ type, add: () => upWf(f => ({ ...f, steps: [...f.steps, { type, label: defaults[type] }] })) })),
+      runWf: () => { if (wf.steps.length < 2) return this.toast('Add at least one step after the trigger.'); const wait = wf.steps.some(x => x.type === 'Approval'); set({ runs: [{ id: Date.now(), name: wf.name, steps: wf.steps.length, status: wait ? 'Awaiting approval' : 'Completed', time: 'Just now' }, ...s.runs].slice(0, 6) }); this.act('Test run: ' + wf.name); },
+      delWf: () => { if (s.workflows.length < 2) return this.toast('Keep at least one workflow.'); confirm('Delete workflow?', '“' + wf.name + '” and its run history will be removed.', 'Delete', () => { this.setState(st => { const l = st.workflows.filter(f => f.id !== wf.id); return { workflows: l, activeWf: l[0].id }; }); this.act('Workflow deleted'); }); },
+      runs: s.runs.map(r => ({ ...r, cls: stCls(r.status), waiting: r.status === 'Awaiting approval', approve: () => { this.setState(st => ({ runs: st.runs.map(x => x.id === r.id ? { ...x, status: 'Completed' } : x) })); this.act('Run approved'); } })), noRuns: !s.runs.length,
+      catTabs: tabs('cat', ['All', 'AI', 'CRM', 'Automation', 'Communication', 'Developer', 'Social'].map(c => [c, c])),
+      integrations: s.integrations.filter(g => s.cat === 'All' || g.cat === s.cat).map(g => ({ ...g, off: !g.connected, status: g.connected ? 'Connected' : 'Not connected', cls: 'tag ' + (g.connected ? 'tag-accent' : 'tag-neutral'), testLabel: s.testing === g.id ? 'Testing…' : 'Test connection',
+        test: () => { if (this.needsNet()) return; set({ testing: g.id }); setTimeout(() => { this.setState({ testing: null }); this.toast(g.name + ' healthy · ' + (120 + g.name.length * 9) + ' ms'); }, 900); },
+        connect: () => { if (this.needsNet()) return; confirm('Connect ' + g.name, g.oauth ? 'You will authorize on ' + g.name + '’s own sign-in page. Nexora AI never sees your password and requests approved scopes only.' : 'Paste a key. It is encrypted before storage and scoped to this workspace.', g.oauth ? 'Authorize' : 'Test and connect', () => { upInt(g.id, { connected: true }); this.act(g.name + ' connected'); }, g.oauth ? '' : 'API key'); },
+        disconnect: () => confirm('Disconnect ' + g.name + '?', 'Syncs and workflows using ' + g.name + ' will stop. Stored credentials are deleted.', 'Disconnect', () => { upInt(g.id, { connected: false }); this.act(g.name + ' disconnected'); }) })),
+      setTabs: [['profile', 'My profile'], ['ai', 'AI providers'], ['security', 'Security'], ['sync', 'Sync and hosting'], ['license', 'License'], ['appearance', 'Appearance']].map(([id, label]) => ({ label, bg: s.setTab === id ? 'var(--tint)' : 'transparent', bd: s.setTab === id ? 'var(--color-divider)' : 'transparent', pick: () => set({ setTab: id }) })),
+      st: { profile: s.setTab === 'profile', ai: s.setTab === 'ai', security: s.setTab === 'security', sync: s.setTab === 'sync', license: s.setTab === 'license', appearance: s.setTab === 'appearance' },
+      profile: s.profile, setProfile: nested('profile', ['name', 'email', 'workspace']), emailErr: s.emailErr,
+      saveProfile: () => { if (!/^\S+@\S+\.\S+$/.test(s.profile.email)) return set({ emailErr: true }); set({ emailErr: false }); this.act('Profile saved'); },
+      providerNames: Object.keys(s.keys),
+      routing: Object.keys(s.routing).map(task => ({ task, val: s.routing[task], set: e => { const v = e.target.value; set({ routing: { ...s.routing, [task]: v } }); this.act(task + ' now uses ' + v); } })),
+      providers: Object.keys(s.keys).map(name => ({ name, key: s.keys[name], status: s.keyOk[name] ? 'Verified' : 'Not verified', cls: 'tag ' + (s.keyOk[name] ? 'tag-accent' : 'tag-neutral'), testLabel: s.keyTesting === name ? 'Testing…' : 'Test',
+        set: e => set({ keys: { ...s.keys, [name]: e.target.value }, keyOk: { ...s.keyOk, [name]: false } }),
+        test: () => { if (!s.keys[name].trim()) return this.toast('Enter a key for ' + name + ' first.'); if (this.needsNet()) return; set({ keyTesting: name }); setTimeout(() => { this.setState(st => ({ keyTesting: null, keyOk: { ...st.keyOk, [name]: true } })); this.toast(name + ' key verified'); }, 800); } })),
+      mfaSw: sw(s.mfa), toggleMfa: () => { if (s.mfa) confirm('Turn off MFA?', 'Your account will be protected by password only.', 'Turn off', () => { set({ mfa: false }); this.act('MFA turned off'); }); else { set({ mfa: true }); this.act('MFA turned on'); } },
+      sessions: s.sessions.map(x => ({ ...x, canRevoke: !x.current, revoke: () => confirm('Revoke session?', x.device + ' will be signed out.', 'Revoke', () => { this.setState(st => ({ sessions: st.sessions.filter(y => y.id !== x.id) })); this.act('Session revoked'); }) })),
+      region: s.region, setRegion: e => { set({ region: e.target.value }); this.act('Cloud region set to ' + e.target.value); }, endpoint: s.endpoint, setEndpoint: inp('endpoint'),
+      cacheSw: sw(s.cache), toggleCache: () => { set({ cache: !s.cache }); this.act('Offline cache ' + (s.cache ? 'off' : 'on')); },
+      conflictOpts: [['ask', 'Ask me each time'], ['latest', 'Most recent edit wins'], ['cloud', 'Cloud version wins']].map(([id, label]) => ({ label, on: s.conflict === id, pick: () => set({ conflict: id }) })),
+      lastBackup: s.lastBackup, backupNow: () => { if (this.needsNet()) return; set({ lastBackup: 'Just now' }); this.act('Backup completed'); },
+      deviceCount: s.devices.length, devices: s.devices.map(d => ({ ...d, remove: () => confirm('Deactivate device?', d.name + ' will need the license key to activate again.', 'Deactivate', () => { this.setState(st => ({ devices: st.devices.filter(x => x.id !== d.id) })); this.act(d.name + ' deactivated'); }) })),
+      ...(() => {
+        const dev = OS[1], lic = s.lic || {}, ev = t => ({ text: t, time: 'Just now' });
+        const grant = (key, note) => { this.setState(st => ({ lic: { key, device: dev, at: '23 Nov 2026' }, licMsg: null, licStep: '', licCode: '', activating: false, licEvents: [ev(note || 'Activated on ' + dev), ...st.licEvents].slice(0, 6) })); this.toast('License activated'); };
+        const fail = (title, body, canTransfer) => this.setState(st => ({ activating: false, licMsg: { title, body, canTransfer: !!canTransfer }, licEvents: [ev('Failed activation: ' + title), ...st.licEvents].slice(0, 6) }));
+        const activate = () => { const k = s.licKey.trim().toUpperCase(); if (!k) return set({ licMsg: { title: 'Enter a license key', body: 'The key is in your purchase email.' } });
+          set({ activating: true, licMsg: null, licStep: '' });
+          setTimeout(() => {
+            if (k === 'NXR-VALID-0001') grant(k);
+            else if (k === 'NXR-EXPIRED-0002') fail('License expired', 'This license expired on 1 October 2026. Renew it from your account, then activate again.');
+            else if (k === 'NXR-REVOKED-0003') fail('License revoked', 'This license was revoked and cannot be activated. Contact support if you think this is a mistake.');
+            else if (k === 'NXR-INUSE-0004') fail('Already active on another device', 'This license is registered to RAFIQ-LAPTOP (Windows 10, activated 14 Nov 2026). One license runs on one device at a time.', true);
+            else if (k === 'NXR-OFFLINE-0005') fail('License server unavailable', 'We could not reach the license server. Check your connection and try again. Nothing was changed.');
+            else fail('Invalid license key', 'No license matches this key. Check for typos or copy it again from your purchase email.');
+          }, 800); };
+        const orM = [
+          { id: 'meta-llama/llama-3.3-70b-instruct:free', name: 'Llama 3.3 70B Instruct', ctx: '131k', free: true, up: true },
+          { id: 'google/gemini-2.0-flash-exp:free', name: 'Gemini 2.0 Flash (exp)', ctx: '1M', free: true, up: false },
+          { id: 'openai/gpt-4o-mini', name: 'GPT-4o mini', ctx: '128k', price: '$0.15 in · $0.60 out', up: true },
+          { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', ctx: '200k', price: '$3.00 in · $15.00 out', up: true },
+          { id: 'mistralai/mistral-small', name: 'Mistral Small', ctx: '32k', price: '$0.20 in · $0.60 out', up: true }
+        ];
+        return {
+          gated: !s.lic, appDisplay: s.lic ? 'flex' : 'none', gateDevice: dev, licKey: s.licKey, setLicKey: e => set({ licKey: e.target.value, licMsg: null, licStep: '' }), licKeyDown: e => { if (e.key === 'Enter') activate(); },
+          hasLicMsg: !!s.licMsg && s.licStep !== 'transfer', licMsg: s.licMsg || {}, activating: s.activating, activateLabel: s.activating ? 'Validating with license server…' : 'Activate license', activate,
+          testKeys: [['Valid', 'NXR-VALID-0001'], ['Expired', 'NXR-EXPIRED-0002'], ['Revoked', 'NXR-REVOKED-0003'], ['In use elsewhere', 'NXR-INUSE-0004'], ['Server unavailable', 'NXR-OFFLINE-0005']].map(([label, key]) => ({ label, use: () => set({ licKey: key, licMsg: null, licStep: '' }) })),
+          transferStep: s.licStep === 'transfer', startTransfer: () => set({ licStep: 'transfer', licCode: '', licCodeErr: false }), licCode: s.licCode, setLicCode: e => set({ licCode: e.target.value, licCodeErr: false }), licCodeErr: s.licCodeErr,
+          confirmTransfer: () => { if (!/^\d{6}$/.test(s.licCode.trim())) return set({ licCodeErr: true }); grant(s.licKey.trim().toUpperCase(), 'Transferred from RAFIQ-LAPTOP to ' + dev); },
+          licMasked: lic.key ? 'NXR-••••-' + lic.key.slice(-4) : '',
+          devices: [{ name: lic.device, meta: 'Activated ' + lic.at + ' · Active', remove: () => confirm('Deactivate this device?', 'The app locks on this device immediately. The license can then be activated on one other device.', 'Deactivate', () => this.setState(st => ({ lic: null, licKey: '', licEvents: [ev('Deactivated on ' + dev), ...st.licEvents].slice(0, 6) }))) }],
+          graceNote: desktop ? 'Offline access uses a signed entitlement token, valid 7 days after the last server check (until 30 Nov 2026). After that the app requires online revalidation.' : 'Every request is checked against the license server. All tabs in this browser count as one device.',
+          licEvents: s.licEvents,
+          orReady: !!s.keyOk['OpenRouter'], orLocked: !s.keyOk['OpenRouter'], orTabs: tabs('orFilter', [['all', 'All'], ['free', 'Free'], ['paid', 'Paid']]),
+          orModels: orM.filter(m => s.orFilter === 'all' || (s.orFilter === 'free') === !!m.free).map(m => ({ ...m, priceCls: 'tag ' + (m.free ? 'tag-accent' : 'tag-neutral'), price: m.free ? 'Free' : m.price, status: m.up ? 'Available' : 'Unavailable', disabled: !m.up || s.orDefault === m.id, pickLabel: s.orDefault === m.id ? 'Default' : 'Set default', pick: () => { set({ orDefault: m.id, orFallback: s.orFallback === m.id ? '' : s.orFallback }); this.act('OpenRouter default: ' + m.name); } })),
+          orFallback: s.orFallback, setOrFallback: e => set({ orFallback: e.target.value }), orFallbackOpts: orM.filter(m => m.up && m.id !== s.orDefault), orBudget: s.orBudget, setOrBudget: inp('orBudget')
+        };
+      })(),
+      themeTabs: tabs('theme', [['light', 'Light'], ['dark', 'Dark']]), sideTabs: [['Expanded', false], ['Collapsed', true]].map(([label, v]) => ({ label, on: s.collapsed === v, pick: () => set({ collapsed: v }) })),
+      dialogOpen: !!s.dialog, dialog: s.dialog || {}, dialogHasField: !!(s.dialog && s.dialog.field), dialogVal: s.dialogVal, setDialogVal: e => set({ dialogVal: e.target.value, dialogErr: false }), dialogErr: s.dialogErr,
+      closeDialog: () => set({ dialog: null }), confirmDialog: () => { const d = s.dialog; if (d.field && !s.dialogVal.trim()) return set({ dialogErr: true }); set({ dialog: null }); d.run(); },
+      hasToast: !!s.toast, toast: s.toast
+    };
+  }
+}
+</script>
+</body>
+</html>

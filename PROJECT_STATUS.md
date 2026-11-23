@@ -1,0 +1,85 @@
+# Nexora AI — project status
+
+_Last updated: 23 November 2026_
+
+## Completed
+
+**Client** (`src/`, `src-tauri/`, `crates/nexora-core/`)
+- License gate and seven modules (Dashboard, AI Intelligence, Content Studio, Communication,
+  Automation, Integrations, Settings) in one React + TypeScript UI; light/dark; sidebar and Android
+  bottom navigation.
+- Tauri 2 shell with typed commands; Rust core for the SQLite offline queue, local cache and
+  offline verification of signed entitlement tokens; OS keystore for secrets on desktop.
+- HTTP client for the real API and an in-memory demo backend for running without a server.
+
+**Backend** (`backend/`)
+- License server: activation, one active device per license (configurable per plan or license),
+  email-verified transfer, deactivation, expiry, revocation, renewal, audit log, signed offline
+  entitlement tokens. Data model: `licenses`, `license_activations`, `license_devices`,
+  `license_entitlements`, `license_events`, `subscriptions`, `subscription_plans`, `usage_records`.
+- Per-request license enforcement on every protected route; workspace isolation on every query.
+- Workspace API: snapshot, computed dashboard metrics, validated idempotent writes, backups,
+  session revocation.
+- AI gateway: OpenAI, Google Gemini, Anthropic Claude and OpenRouter with bring-your-own keys
+  encrypted at rest, per-task routing, usage records, OpenRouter live model list, configured
+  fallback and monthly spend limit.
+- Integrations: key-based and OAuth (authorization-code) connections with encrypted credentials.
+- BullMQ worker for email and housekeeping (optional; the API does both itself without Redis).
+- Operator CLI: key generation, migrations, license create/revoke/renew, CSV lead import.
+
+## Verification evidence
+
+| Check | Result |
+| --- | --- |
+| Backend tests (`backend`, `npm test`, real PostgreSQL 16 and Redis) | 57 passed |
+| Client unit tests (`npm test`) | 10 passed |
+| Rust tests (`cargo test --workspace`) | 18 passed, including the server-token contract test |
+| Browser run against the real API (web) | 20 checks passed: activation, httpOnly cookies, persistence across reload, same-device second tab, second-device rejection, transfer by emailed code, old device locked out, deactivation |
+| Browser run in demo mode | 50 checks passed across every screen and platform frame |
+| Typecheck and production build (client), typecheck (backend), Tauri shell compile (Linux) | pass |
+
+What the license tests cover: first activation; second device rejected; 12 simultaneous activations
+admit exactly one; the database constraint alone refuses a duplicate seat; one browser with several
+tabs is one device; cookies replayed from another browser are refused; deactivation and transfer;
+wrong, expired, exhausted and wrong-device transfer codes; expired and revoked licenses; offline
+token contents, grace period and expiry cap; a copied device id is not accepted; every protected
+route returns 401 without a license; cross-workspace reads and writes are refused.
+
+## Not verified
+
+- **No provider was called with a real key.** The OpenAI, Gemini and OpenRouter adapters and the four
+  OAuth configurations (LinkedIn, HubSpot, Salesforce, Google Calendar) are written from the
+  providers' documented request shapes and tested against scripted responses only. Check each one
+  with a real account before relying on it, and confirm the default model names in `.env`.
+- The native app was not run against the API (only the web client was), and no Windows, macOS or
+  Android build was made. The token format the native app depends on is covered by the contract test.
+- Email was exercised through the queue and a capture mailer, not through a real SMTP server.
+
+## Outstanding
+
+- **Sign-in and team members.** A license on a device is the only credential; there are no
+  passwords, roles or invitations. The MFA switch in Settings is stored but enforces nothing.
+- **Billing.** Plans and subscriptions exist as data; nothing charges a card. Licenses are issued,
+  renewed and revoked with the CLI. A payment-provider webhook should call the same functions.
+- **Message delivery.** A reply sent in Communication is stored; it is not delivered to email,
+  WhatsApp or any other channel, and nothing imports inbound messages.
+- **Workflow execution.** Workflows and test runs are stored and rate-limited; no engine executes
+  their steps on triggers.
+- **Integration sync.** Connections are stored and testable; no data is synced with HubSpot,
+  Salesforce, Google Calendar or LinkedIn, and OAuth tokens are not refreshed when they expire.
+- **Lead import in the app.** CSV import exists only as a CLI command; the design has no screen for it.
+- **Self-hosted endpoint and cloud region.** Saved as settings; the client always talks to
+  `VITE_API_URL` and no data is moved between regions.
+- **Backups.** A backup stores a snapshot row; there is no restore or download.
+- **Android** project initialisation and secure storage, **auto-update**, code signing, app icon.
+
+## Known limitations
+
+- A transfer on a multi-device license deactivates all of its devices, not one chosen device.
+- A native install that loses its session token (for example a wiped keystore) while its seat is
+  still active must use the transfer flow to get back in.
+- Sessions list shows device and last-seen time only; there is no location lookup.
+- AI cost is reported only for OpenRouter; other providers are counted in tokens.
+- Rate limits are per process unless Redis is configured.
+- The backend imports the lead-scoring module and shared types from the client's `src/lib`, so it
+  must be deployed from this repository layout.

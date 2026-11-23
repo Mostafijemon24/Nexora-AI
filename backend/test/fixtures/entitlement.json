@@ -1,0 +1,11 @@
+{
+  "public_key": "6kpsY+KcUgq+9VB7Ey7F+ZVHdq6+vnuSQh7qaRRG0iw=",
+  "payload": {
+    "license_id": "6f1c0b9e-2f0a-4c57-9a55-0d3c1d2b7a10",
+    "device_id": "0b0f6a54-7d0e-4a57-8f0b-2f8c1c6f9d11",
+    "plan": "professional",
+    "issued_at": 1795424400,
+    "license_expires_at": 1798016400
+  },
+  "token": "eyJsaWNlbnNlX2lkIjoiNmYxYzBiOWUtMmYwYS00YzU3LTlhNTUtMGQzYzFkMmI3YTEwIiwiZGV2aWNlX2lkIjoiMGIwZjZhNTQtN2QwZS00YTU3LThmMGItMmY4YzFjNmY5ZDExIiwicGxhbiI6InByb2Zlc3Npb25hbCIsImlzc3VlZF9hdCI6MTc5NTQyNDQwMCwibGljZW5zZV9leHBpcmVzX2F0IjoxNzk4MDE2NDAwfQ.wpphifGf0gwmnlxaNEwun3K6WPIGLJs5w_sJR0GZ0oFPFjZWEZXFkEAAPe3JRAOB0unQpkmQPAkUnQI4IcyuBA"
+}
