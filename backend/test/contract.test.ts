@@ -2,7 +2,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { Queue } from 'bullmq';
 import { afterAll, describe, expect, it } from 'vitest';
-import { parseCsv } from '../src/cli.ts';
+import { parseCsv } from '../src/workspace/leads.ts';
 import { decrypt, encrypt, newLicenseKey, publicKeyBase64, signEntitlement } from '../src/crypto.ts';
 import { createDb, migrate } from '../src/db.ts';
 import type { Mail } from '../src/mail.ts';

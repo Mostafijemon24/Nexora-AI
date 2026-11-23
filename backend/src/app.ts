@@ -9,7 +9,8 @@ import * as integrations from './integrations.ts';
 import * as license from './license/service.ts';
 import type { Auth, Client } from './license/service.ts';
 import { applyChange } from './workspace/changes.ts';
-import { loadMetrics, loadSnapshot, PROVIDERS } from './workspace/snapshot.ts';
+import { importLeadsFor } from './workspace/leads.ts';
+import { loadLeads, loadMetrics, loadSnapshot, PROVIDERS } from './workspace/snapshot.ts';
 
 const DEVICE_COOKIE = 'nxr_device';
 const SESSION_COOKIE = 'nxr_session';
@@ -130,6 +131,12 @@ export function createApp(ctx: Ctx) {
     return c.json(await loadMetrics(ctx, c.get('auth'), range as Range));
   });
   app.post('/v1/workspace/changes', async (c) => { await applyChange(ctx, c.get('auth'), await json(c)); return c.body(null, 204); });
+
+  app.post('/v1/leads/import', async (c) => {
+    const auth = c.get('auth');
+    const result = await importLeadsFor(ctx, auth, (await json(c)).csv);
+    return c.json({ ...result, leads: await loadLeads(ctx.db, auth.workspaceId) });
+  });
 
   app.post('/v1/ai/chat', async (c) => {
     const b = await json(c);

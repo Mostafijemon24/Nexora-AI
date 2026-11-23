@@ -1,0 +1,56 @@
+name: Release installers
+
+# Builds the desktop installers for Windows, macOS and Linux and attaches them to a draft
+# GitHub release. Run it from the Actions tab, or push a tag like v1.0.0.
+#
+# Repository settings → Secrets and variables → Actions → Variables:
+#   VITE_API_URL               public URL of the backend, e.g. https://api.example.com
+#   NEXORA_LICENSE_PUBLIC_KEY  printed by `npm run cli -- keygen` in backend/
+# Without VITE_API_URL the installers run on built-in demo data and cannot activate real licenses.
+# The installers are unsigned: Windows and macOS will warn on first launch until code signing is set up.
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-22.04, args: "" }
+          - { os: windows-latest, args: "" }
+          - { os: macos-latest, args: "--target aarch64-apple-darwin" }
+          - { os: macos-latest, args: "--target x86_64-apple-darwin" }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: System libraries for Tauri (Linux)
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libayatana-appindicator3-dev libssl-dev libdbus-1-dev patchelf
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ startsWith(matrix.os, 'macos') && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+      - uses: Swatinem/rust-cache@v2
+      - run: npm ci
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          NEXORA_LICENSE_PUBLIC_KEY: ${{ vars.NEXORA_LICENSE_PUBLIC_KEY }}
+        with:
+          tagName: v__VERSION__
+          releaseName: Nexora AI v__VERSION__
+          releaseBody: Desktop installers for Windows, macOS and Linux.
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}

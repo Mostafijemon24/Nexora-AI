@@ -23,6 +23,12 @@ printed `NEXORA_LICENSE_PUBLIC_KEY`.
 Tests use `postgres://nexora:nexora@localhost:5432/nexora_test` (override with `TEST_DATABASE_URL`)
 and **drop and recreate its schema**; never point them at a database you care about.
 
+## Deploy
+
+`backend/Dockerfile` builds one image for the API, the worker and migrations; build it from the
+repository root (the commands are at the top of the file). The app and the API must be served from
+the same site over https, for example `app.example.com` and `api.example.com`.
+
 ## Operator commands (`npm run cli -- <command>`)
 
 | Command | Effect |
@@ -90,6 +96,7 @@ Errors are `{ "code", "message" }`. `401 license_required` means the device must
 | GET | `/v1/workspace` | the full snapshot (`WorkspaceSnapshot` in `../src/lib/types.ts`) |
 | GET | `/v1/workspace/metrics?range=7d\|30d\|90d` | replies per bucket and the lead funnel, computed from stored data |
 | POST | `/v1/workspace/changes` | one `Change`; its `id` is the idempotency key |
+| POST | `/v1/leads/import` | `{csv}` (header row with `name`, `company`; optional `title`, `industry`, `size`, `country`) → `{imported, skipped, leads}` |
 | POST | `/v1/ai/chat` · `/v1/ai/posts/generate` · `/v1/ai/leads/:id/draft` | AI gateway; `notice` is set when a fallback model answered |
 | POST | `/v1/ai/providers/verify` | `{name, key}` → `{verified}`; an empty key re-checks the stored one |
 | GET | `/v1/ai/openrouter/models` | live list from OpenRouter |

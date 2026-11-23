@@ -1,5 +1,5 @@
 import type {
-  ActivationResult, AiTask, Change, DashboardMetrics, DeviceInfo, GeneratedPost, LicenseEvent, LicenseState,
+  ActivationResult, AiTask, Change, DashboardMetrics, DeviceInfo, GeneratedPost, Lead, LicenseEvent, LicenseState,
   OpenRouterModel, ProviderName, Range, Tone, WorkspaceSnapshot,
 } from '../lib/types';
 
@@ -46,6 +46,11 @@ export interface Backend {
     chat(history: ChatTurn[], task: AiTask): Promise<AiText>;
     generatePost(input: { topic: string; audience: string; tone: Tone; variant: number }): Promise<GeneratedPost & { notice?: string }>;
     draftMessage(leadId: string): Promise<AiText>;
+  };
+
+  leads: {
+    /** Imports leads from CSV text (header row with at least name and company). Returns the full lead list. */
+    importCsv(csv: string): Promise<{ imported: number; skipped: number; leads: Lead[] }>;
   };
 
   integrations: {

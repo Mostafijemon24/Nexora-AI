@@ -86,6 +86,33 @@ describe('OAuth integrations', () => {
     expect((await d.post('/v1/integrations/hs/test')).body.code).toBe('integration_rejected');
   });
 
+  it('refreshes an expired access token with the stored refresh token and keeps the new one', async () => {
+    await d.del('/v1/integrations/hs');
+    const st = new URL((await d.post('/v1/integrations/hs/connect', {})).body.redirectUrl).searchParams.get('state')!;
+    h.respond = () => json({ access_token: 'at-old', refresh_token: 'rt-1', expires_in: 1800 });
+    await h.app.request(`/v1/integrations/hs/callback?code=abc&state=${st}`);
+
+    h.advance(3600_000); // the access token has expired
+    h.calls.length = 0;
+    h.respond = (url) => (url.includes('/oauth/v1/token') ? json({ access_token: 'at-new', expires_in: 1800 }) : json({ results: [] }));
+    expect((await d.post('/v1/integrations/hs/test')).status).toBe(200);
+    expect(String(h.calls[0].init?.body)).toContain('grant_type=refresh_token');
+    expect(String(h.calls[0].init?.body)).toContain('refresh_token=rt-1');
+    expect(new Headers(h.calls[1].init?.headers).get('authorization')).toBe('Bearer at-new');
+
+    // The refreshed token was stored (and the refresh token kept), so the next call does not refresh again.
+    h.calls.length = 0;
+    await d.post('/v1/integrations/hs/test');
+    expect(h.calls).toHaveLength(1);
+    expect(new Headers(h.calls[0].init?.headers).get('authorization')).toBe('Bearer at-new');
+
+    // A refresh the provider rejects asks the user to reconnect.
+    h.advance(3600_000);
+    h.respond = () => json({ error: 'invalid_grant' }, 400);
+    const r = await d.post('/v1/integrations/hs/test');
+    expect([r.status, r.body.message]).toEqual([400, 'HubSpot no longer accepts the stored authorization. Reconnect it.']);
+  });
+
   it('reports a denied authorization without connecting', async () => {
     await d.del('/v1/integrations/hs');
     const st = new URL((await d.post('/v1/integrations/hs/connect', {})).body.redirectUrl).searchParams.get('state')!;

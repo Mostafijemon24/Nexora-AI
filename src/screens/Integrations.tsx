@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Button, Card, Seg } from '../components/ui';
 import type { Integration } from '../lib/types';
 import { useApp, useWs } from '../state/store';
@@ -11,6 +11,27 @@ export function Integrations() {
   const s = useApp();
   const [cat, setCat] = useState('All');
   const [testing, setTesting] = useState<string | null>(null);
+
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
+  const importLeads = async (file: File | undefined) => {
+    if (!file) return;
+    if (s.needsNet('Importing leads')) return;
+    setImporting(true);
+    try {
+      const r = await s.backend!.leads.importCsv(await file.text());
+      s.update(() => ({ leads: r.leads }));
+      s.set({ metrics: {} });
+      void s.setRange(s.range);
+      const skipped = r.skipped ? ` · ${r.skipped} skipped (no name or company)` : '';
+      s.commit(`${r.imported} lead${r.imported === 1 ? '' : 's'} imported from CSV${skipped}`);
+    } catch (e) {
+      s.notify(`Import failed: ${errText(e)}`);
+    } finally {
+      setImporting(false);
+      if (fileInput.current) fileInput.current.value = '';
+    }
+  };
 
   const mark = (id: string, connected: boolean) =>
     s.update((x) => ({ integrations: x.integrations.map((g) => (g.id === id ? { ...g, connected } : g)) }));
@@ -74,7 +95,14 @@ export function Integrations() {
       <Card kicker="LinkedIn integration strategy">
         <div className="grid g220" style={{ gap: 16 }}>
           <div><h5>Approved API</h5><div className="hint13">OAuth connection · permitted organization content · available analytics</div></div>
-          <div><h5>Manual, user-controlled</h5><div className="hint13">CSV lead import · message drafts · connection, publishing and follow-up reminders</div></div>
+          <div>
+            <h5>Manual, user-controlled</h5>
+            <div className="hint13">CSV lead import · message drafts · connection, publishing and follow-up reminders</div>
+            <input ref={fileInput} type="file" accept=".csv,text/csv" hidden onChange={(e) => void importLeads(e.target.files?.[0])} />
+            <Button disabled={importing} onClick={() => fileInput.current?.click()} style={{ marginTop: 8 }} title="Header row: name, company, title, industry, size, country">
+              {importing ? 'Importing…' : 'Import leads from CSV'}
+            </Button>
+          </div>
           <div><h5>Not included</h5><div className="hint13">Credential collection · scraping · automated clicking · private inbox extraction</div></div>
         </div>
       </Card>

@@ -142,6 +142,24 @@ describe('changes', () => {
   });
 });
 
+describe('lead import', () => {
+  it('imports CSV rows into this workspace only, leaving missing fields unknown', async () => {
+    const before = (await snap(b)).leads.length;
+    const csv = 'Name,Company,Title,Size,Country\n"Okafor, Ada","Lumen Ltd",CTO,40,Nigeria\nNo Company,,CEO,5,UK\nBen Ito,Kite,,not-a-number,\n';
+    const r = await a.post('/v1/leads/import', { csv });
+    expect(r.body.imported).toBe(2);
+    expect(r.body.skipped).toBe(1);
+    const mine = r.body.leads.filter((l: any) => ['Okafor, Ada', 'Ben Ito'].includes(l.name)).sort((x: any, y: any) => y.name.localeCompare(x.name));
+    expect(mine).toEqual([
+      { id: expect.any(String), name: 'Okafor, Ada', title: 'CTO', company: 'Lumen Ltd', industry: null, size: 40, country: 'Nigeria' },
+      { id: expect.any(String), name: 'Ben Ito', title: null, company: 'Kite', industry: null, size: null, country: null },
+    ]);
+    expect((await snap(b)).leads).toHaveLength(before);
+    expect((await a.post('/v1/leads/import', { csv: 'email\nx@y.z' })).body.message).toMatch(/"name" and "company"/);
+    expect((await a.post('/v1/leads/import', { csv: '' })).status).toBe(400);
+  });
+});
+
 describe('workspace isolation', () => {
   it('never shows one workspace another workspace\'s data', async () => {
     const [sa, sb] = [await snap(a), await snap(b)];

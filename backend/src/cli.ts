@@ -7,6 +7,7 @@ import { publicKeyBase64 } from './crypto.ts';
 import { migrate } from './db.ts';
 import { createLicense, renewLicense, revokeLicense } from './license/service.ts';
 import { seedDemo } from './seed.ts';
+import { importLeads } from './workspace/leads.ts';
 
 const HELP = `Nexora AI backend
 
@@ -19,28 +20,6 @@ const HELP = `Nexora AI backend
   leads:import --workspace ID --file leads.csv
                                       import leads from CSV with the header: name,title,company,industry,size,country
 `;
-
-/** Minimal RFC 4180 reader: quoted fields, doubled quotes, commas and newlines inside quotes. */
-export function parseCsv(text: string): string[][] {
-  const rows: string[][] = [];
-  let row: string[] = [], field = '', quoted = false;
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if (quoted) {
-      if (ch === '"' && text[i + 1] === '"') { field += '"'; i++; } else if (ch === '"') quoted = false; else field += ch;
-    } else if (ch === '"') quoted = true;
-    else if (ch === ',') { row.push(field); field = ''; }
-    else if (ch === '\n' || ch === '\r') {
-      if (ch === '\r' && text[i + 1] === '\n') i++;
-      row.push(field); field = '';
-      if (row.some((f) => f.trim())) rows.push(row);
-      row = [];
-    } else field += ch;
-  }
-  row.push(field);
-  if (row.some((f) => f.trim())) rows.push(row);
-  return rows;
-}
 
 async function main() {
   const [command, ...rest] = process.argv.slice(2);
@@ -89,22 +68,8 @@ async function main() {
         break;
       }
       case 'leads:import': {
-        const w = need('workspace');
-        const [header, ...rows] = parseCsv(await readFile(need('file'), 'utf8'));
-        const col = (n: string) => header.findIndex((h) => h.trim().toLowerCase() === n);
-        const idx = { name: col('name'), title: col('title'), company: col('company'), industry: col('industry'), size: col('size'), country: col('country') };
-        if (idx.name < 0 || idx.company < 0) throw new Error('The CSV needs at least "name" and "company" columns.');
-        const cell = (r: string[], i: number) => (i >= 0 && r[i]?.trim() ? r[i].trim() : null);
-        let n = 0;
-        for (const r of rows) {
-          const name = cell(r, idx.name), company = cell(r, idx.company);
-          if (!name || !company) continue;
-          const size = Number(cell(r, idx.size));
-          await rt.db.query('INSERT INTO leads (workspace_id, name, title, company, industry, size, country) VALUES ($1,$2,$3,$4,$5,$6,$7)',
-            [w, name, cell(r, idx.title), company, cell(r, idx.industry), Number.isInteger(size) && size > 0 ? size : null, cell(r, idx.country)]);
-          n++;
-        }
-        console.log(`Imported ${n} lead${n === 1 ? '' : 's'}; ${rows.length - n} skipped (missing name or company).`);
+        const r = await importLeads(rt.ctx, need('workspace'), await readFile(need('file'), 'utf8'));
+        console.log(`Imported ${r.imported} lead${r.imported === 1 ? '' : 's'}; ${r.skipped} skipped (missing name or company).`);
         break;
       }
       default:

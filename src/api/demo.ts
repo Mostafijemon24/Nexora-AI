@@ -273,6 +273,24 @@ export function createDemoBackend(now: () => Date = () => new Date()): Backend {
         return { text: `Hi ${l.name.split(' ')[0]} — I saw ${l.company} is growing${l.industry ? ` in ${l.industry.toLowerCase()}` : ''}. We help teams like yours turn outreach into booked conversations. Open to a quick exchange of notes?` };
       },
     },
+    leads: {
+      async importCsv(csv) {
+        await wait(300);
+        const [header, ...rows] = csv.split(/\r?\n/).filter((l) => l.trim()).map((l) => l.split(',').map((c) => c.trim().replace(/^"|"$/g, '')));
+        const col = (n: string) => (header ?? []).findIndex((h) => h.toLowerCase() === n);
+        const [n, c] = [col('name'), col('company')];
+        if (n < 0 || c < 0) throw new Error('The CSV needs a header row with at least "name" and "company" columns.');
+        const cell = (r: string[], i: number) => (i >= 0 && r[i] ? r[i] : null);
+        let imported = 0;
+        for (const r of rows) {
+          if (!r[n] || !r[c]) continue;
+          const size = Number(cell(r, col('size')));
+          ws.leads.push({ id: crypto.randomUUID(), name: r[n], company: r[c], title: cell(r, col('title')), industry: cell(r, col('industry')), size: Number.isInteger(size) && size > 0 ? size : null, country: cell(r, col('country')) });
+          imported++;
+        }
+        return { imported, skipped: rows.length - imported, leads: structuredClone(ws.leads) };
+      },
+    },
     integrations: {
       async test(id) {
         await wait(900);

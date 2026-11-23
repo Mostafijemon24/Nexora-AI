@@ -26,15 +26,23 @@ _Last updated: 23 November 2026_
 - Integrations: key-based and OAuth (authorization-code) connections with encrypted credentials.
 - BullMQ worker for email and housekeeping (optional; the API does both itself without Redis).
 - Operator CLI: key generation, migrations, license create/revoke/renew, CSV lead import.
+- Lead import from CSV inside the app (Integrations → Manual, user-controlled).
+- OAuth access tokens are refreshed with the stored refresh token when they expire.
+
+**Delivery**
+- `backend/Dockerfile` for the API, worker and migrations.
+- GitHub Actions: `ci.yml` runs every test suite on each push; `release.yml` builds Windows, macOS
+  and Linux installers into a draft release.
 
 ## Verification evidence
 
 | Check | Result |
 | --- | --- |
-| Backend tests (`backend`, `npm test`, real PostgreSQL 16 and Redis) | 57 passed |
+| Backend tests (`backend`, `npm test`, real PostgreSQL 16 and Redis) | 59 passed |
 | Client unit tests (`npm test`) | 10 passed |
 | Rust tests (`cargo test --workspace`) | 18 passed, including the server-token contract test |
 | Browser run against the real API (web) | 20 checks passed: activation, httpOnly cookies, persistence across reload, same-device second tab, second-device rejection, transfer by emailed code, old device locked out, deactivation |
+| Desktop app (Linux build) run against the real API | activated with a real key; session, device id and entitlement token stored in the OS keyring; relaunch opened straight into the workspace; with the API stopped it started offline on the signed token and cached data |
 | Browser run in demo mode | 50 checks passed across every screen and platform frame |
 | Typecheck and production build (client), typecheck (backend), Tauri shell compile (Linux) | pass |
 
@@ -51,8 +59,8 @@ route returns 401 without a license; cross-workspace reads and writes are refuse
   OAuth configurations (LinkedIn, HubSpot, Salesforce, Google Calendar) are written from the
   providers' documented request shapes and tested against scripted responses only. Check each one
   with a real account before relying on it, and confirm the default model names in `.env`.
-- The native app was not run against the API (only the web client was), and no Windows, macOS or
-  Android build was made. The token format the native app depends on is covered by the contract test.
+- No Windows, macOS or Android build has been made or run; only the Linux desktop app was. The
+  release workflow and the Dockerfile are written but have not been run.
 - Email was exercised through the queue and a capture mailer, not through a real SMTP server.
 
 ## Outstanding
@@ -66,8 +74,7 @@ route returns 401 without a license; cross-workspace reads and writes are refuse
 - **Workflow execution.** Workflows and test runs are stored and rate-limited; no engine executes
   their steps on triggers.
 - **Integration sync.** Connections are stored and testable; no data is synced with HubSpot,
-  Salesforce, Google Calendar or LinkedIn, and OAuth tokens are not refreshed when they expire.
-- **Lead import in the app.** CSV import exists only as a CLI command; the design has no screen for it.
+  Salesforce, Google Calendar or LinkedIn.
 - **Self-hosted endpoint and cloud region.** Saved as settings; the client always talks to
   `VITE_API_URL` and no data is moved between regions.
 - **Backups.** A backup stores a snapshot row; there is no restore or download.

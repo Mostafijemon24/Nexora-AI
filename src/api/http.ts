@@ -78,6 +78,7 @@ export function createHttpBackend(baseUrl: string, opts: HttpOptions): Backend {
       generatePost: (input) => post('/v1/ai/posts/generate', input),
       draftMessage: (leadId) => post(`/v1/ai/leads/${encodeURIComponent(leadId)}/draft`),
     },
+    leads: { importCsv: (csv) => post('/v1/leads/import', { csv }) },
     integrations: {
       test: (id) => post(`/v1/integrations/${encodeURIComponent(id)}/test`),
       connect: (id, apiKey) => post(`/v1/integrations/${encodeURIComponent(id)}/connect`, apiKey ? { apiKey } : {}),

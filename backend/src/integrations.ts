@@ -66,19 +66,62 @@ async function secretFor(ctx: Ctx, auth: Auth, id: string): Promise<string> {
   return decrypt(ctx.config.dataEncryptionKey, r.rows[0].secret_enc);
 }
 
-/** Calls the service with the stored credential. Throws a user-facing error when it does not answer OK. */
-async function probe(ctx: Ctx, e: Entry, secret: string): Promise<void> {
+interface TokenSet { access_token: string; refresh_token?: string; expires_at?: number }
+
+/** Stamps an absolute expiry on a token response so it can be refreshed before it lapses. */
+function stamp(ctx: Ctx, tokens: Record<string, unknown>, previous?: TokenSet): TokenSet {
+  const ttl = Number(tokens.expires_in);
+  return {
+    ...tokens,
+    access_token: String(tokens.access_token),
+    // Providers often omit the refresh token on refresh; the old one stays valid.
+    refresh_token: typeof tokens.refresh_token === 'string' ? tokens.refresh_token : previous?.refresh_token,
+    expires_at: Number.isFinite(ttl) && ttl > 0 ? Math.floor(ctx.now().getTime() / 1000) + ttl : undefined,
+  };
+}
+
+/** A usable access token for an OAuth integration, refreshed with the stored refresh token when it has expired. */
+async function accessToken(ctx: Ctx, workspaceId: string, e: Entry, secret: string, force = false): Promise<string> {
+  const t = JSON.parse(secret) as TokenSet;
+  const expired = t.expires_at !== undefined && t.expires_at - 60 <= ctx.now().getTime() / 1000;
+  if (!(force || expired) || !t.refresh_token) return t.access_token;
+  const app = oauthApp(ctx, e.oauth!);
+  if (!app) return t.access_token;
   let res: Response;
   try {
+    res = await ctx.fetch(e.oauth!.tokenUrl, {
+      method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
+      body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: t.refresh_token, client_id: app.clientId, client_secret: app.clientSecret }),
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch {
+    throw new HttpError(502, 'integration_unreachable', `${e.name} did not respond.`);
+  }
+  const fresh = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!res.ok || typeof fresh.access_token !== 'string') throw new HttpError(400, 'integration_rejected', `${e.name} no longer accepts the stored authorization. Reconnect it.`);
+  const next = stamp(ctx, fresh, t);
+  await save(ctx, workspaceId, e.id, JSON.stringify(next));
+  return next.access_token;
+}
+
+/** Calls the service with the stored credential. Throws a user-facing error when it does not answer OK. */
+async function probe(ctx: Ctx, e: Entry, secret: string, workspaceId = ''): Promise<void> {
+  let res: Response;
+  const viaOAuth = async (force: boolean) =>
+    ctx.fetch(e.oauth!.probeUrl, { headers: { Authorization: `Bearer ${await accessToken(ctx, workspaceId, e, secret, force)}` }, signal: AbortSignal.timeout(15_000) });
+  try {
     if (e.kind === 'oauth') {
-      res = await ctx.fetch(e.oauth!.probeUrl, { headers: { Authorization: `Bearer ${JSON.parse(secret).access_token}` }, signal: AbortSignal.timeout(15_000) });
+      res = await viaOAuth(false);
+      // A token revoked or expired early is refreshed once before giving up.
+      if (res.status === 401 && (JSON.parse(secret) as TokenSet).refresh_token) res = await viaOAuth(true);
     } else if (e.id === 'wa') {
       res = await ctx.fetch('https://graph.facebook.com/me', { headers: { Authorization: `Bearer ${secret}` }, signal: AbortSignal.timeout(15_000) });
     } else {
       // n8n and generic webhooks: the stored value is the endpoint itself.
       res = await ctx.fetch(secret, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'nexora.ping', at: ctx.now().toISOString() }), signal: AbortSignal.timeout(15_000) });
     }
-  } catch {
+  } catch (err) {
+    if (err instanceof HttpError) throw err;
     throw new HttpError(502, 'integration_unreachable', `${e.name} did not respond.`);
   }
   if (res.status === 401 || res.status === 403) throw new HttpError(400, 'integration_rejected', `${e.name} rejected the stored credential. Reconnect it.`);
@@ -124,9 +167,9 @@ export async function oauthCallback(ctx: Ctx, id: string, query: { code?: string
       body: new URLSearchParams({ grant_type: 'authorization_code', code: query.code, redirect_uri: callbackUrl(ctx, id), client_id: app.clientId, client_secret: app.clientSecret }),
       signal: AbortSignal.timeout(15_000),
     });
-    const tokens = (await res.json()) as { access_token?: string };
-    if (!res.ok || !tokens.access_token) return back('failed');
-    await save(ctx, st.workspace_id, id, JSON.stringify(tokens));
+    const tokens = (await res.json()) as Record<string, unknown>;
+    if (!res.ok || typeof tokens.access_token !== 'string') return back('failed');
+    await save(ctx, st.workspace_id, id, JSON.stringify(stamp(ctx, tokens)));
     return back('connected');
   } catch {
     return back('failed');
@@ -139,7 +182,7 @@ export async function test(ctx: Ctx, auth: Auth, id: string): Promise<{ latencyM
   if (e.kind === 'provider') {
     if (!(await verifyKey(ctx, auth, e.name as ProviderName, ''))) throw new HttpError(400, 'integration_rejected', `${e.name} rejected the stored key.`);
   } else {
-    await probe(ctx, e, await secretFor(ctx, auth, id));
+    await probe(ctx, e, await secretFor(ctx, auth, id), auth.workspaceId);
   }
   return { latencyMs: Math.max(1, Math.round(performance.now() - started)) };
 }
