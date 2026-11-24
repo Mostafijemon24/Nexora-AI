@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createDemoBackend, workspaceMetrics } from './demo';
-import type { Conversation } from '../lib/types';
+import { newLead, type Change, type Conversation } from '../lib/types';
+import { makeStep } from '../lib/workflow';
 
 const NOW = new Date(2026, 10, 24, 10, 0); // Tuesday 24 November 2026
 const local = () => createDemoBackend(() => NOW, false);
@@ -8,7 +9,7 @@ const local = () => createDemoBackend(() => NOW, false);
 describe('local backend', () => {
   it('starts with an empty workspace and nothing connected', async () => {
     const ws = await local().workspace.load();
-    for (const k of ['leads', 'prompts', 'posts', 'conversations', 'savedReplies', 'workflows', 'runs', 'tasks', 'activity'] as const) {
+    for (const k of ['leads', 'campaigns', 'prompts', 'posts', 'conversations', 'savedReplies', 'workflows', 'runs', 'tasks', 'activity'] as const) {
       expect(ws[k], k).toEqual([]);
     }
     expect(ws.profile.name).toBe('');
@@ -29,6 +30,9 @@ describe('local backend', () => {
     const r = await b.leads.importCsv('name,company\nAda,Engines Ltd\nGrace,Compilers Inc\n,missing name');
     expect(r).toMatchObject({ imported: 2, skipped: 1 });
     expect((await b.workspace.metrics('7d')).funnel).toEqual([2, 0, 0, 0]);
+    const [ada] = (await b.workspace.load()).leads;
+    await b.workspace.push([{ id: 'x1', entity: 'lead', op: 'upsert', entityId: ada.id, data: { ...ada, stage: 'interested' }, at: NOW.toISOString() }]);
+    expect((await b.workspace.metrics('7d')).funnel).toEqual([2, 1, 1, 0]);
   });
 
   it('answers a lead question when there are no leads', async () => {
@@ -51,6 +55,77 @@ describe('local backend', () => {
     expect(b.canConnect).toBe(true);
     await b.integrations.connect('li');
     expect((await b.workspace.load()).integrations.find((g) => g.id === 'li')?.connected).toBe(true);
+  });
+});
+
+describe('local workflows', () => {
+  let n = 0;
+  const ch = (entity: string, entityId: string, data?: unknown, op: Change['op'] = 'upsert'): Change => ({ id: `c${++n}`, entity, op, entityId, data, at: NOW.toISOString() });
+  const lead = (id: string, rest = {}) => newLead(id, `Lead ${id}`, 'Acme', NOW.toISOString(), rest);
+
+  it('runs a workflow when a lead is added, and reports that more changed', async () => {
+    const b = local();
+    const wf = { id: 'w1', name: 'Tag new leads', on: true, steps: [makeStep('lead.created'), makeStep('lead.add_tag', { tag: 'new' }), makeStep('task.create', { text: 'Call {{lead.name}}', days: '1' })] };
+    expect(await b.workspace.push([ch('workflow', 'w1', wf)])).toEqual({ effects: false });
+    expect(await b.workspace.push([ch('lead', 'a', lead('a'))])).toEqual({ effects: true });
+    const ws = await b.workspace.load();
+    expect(ws.leads[0].tags).toEqual(['new']);
+    expect(ws.tasks[0]).toMatchObject({ text: 'Call Lead a', dueDate: '2026-11-25', leadId: 'a' });
+    expect(ws.runs[0]).toMatchObject({ workflowId: 'w1', status: 'Completed', subject: { leadId: 'a' } });
+    // Imported leads start workflows too.
+    await b.leads.importCsv('name,company\nAda,Engines');
+    expect((await b.workspace.load()).runs).toHaveLength(2);
+  });
+
+  it('waits for approval, and never claims a message was sent without a server', async () => {
+    const b = local();
+    const wf = { id: 'w2', name: 'Outreach', on: true, steps: [makeStep('lead.stage_changed', { to: 'interested' }), makeStep('message.draft'), makeStep('approval'), makeStep('message.send'), makeStep('lead.set_stage', { stage: 'contacted' })] };
+    await b.workspace.push([ch('workflow', 'w2', wf), ch('lead', 'a', lead('a', { email: 'a@example.com' }))]);
+    await b.workspace.push([ch('lead', 'a', lead('a', { email: 'a@example.com', stage: 'interested' }))]);
+    let ws = await b.workspace.load();
+    expect(ws.runs[0].status).toBe('Awaiting approval');
+    expect(ws.conversations[0]).toMatchObject({ leadId: 'a', channel: 'Email', address: 'a@example.com', msgs: [] });
+    expect(ws.conversations[0].suggestion).toMatch(/^Hi Lead/);
+
+    await b.workspace.push([ch('run', ws.runs[0].id, { ...ws.runs[0], status: 'Completed' })]);
+    ws = await b.workspace.load();
+    expect(ws.runs[0].status).toBe('Failed');
+    expect(ws.runs[0].log!.at(-1)).toMatchObject({ ok: false, text: expect.stringContaining('not sent') });
+    expect(ws.conversations[0].msgs[0]).toMatchObject({ me: true, status: 'saved' });
+    expect(ws.leads[0].stage).toBe('interested'); // the step after the failed send did not run
+  });
+
+  it('keeps a reply typed in the inbox, marked as not sent', async () => {
+    const b = local();
+    const conv: Conversation = { id: 'k', name: 'Ada', company: '', channel: 'Email', address: 'ada@example.com', unread: true, important: false, intent: '', sentiment: '', suggestion: '', notes: [], msgs: [] };
+    await b.workspace.push([ch('conversation', 'k', conv)]);
+    expect(await b.workspace.push([ch('message', 'm1', { id: 'm1', conversationId: 'k', text: 'Hello', at: NOW.toISOString() })])).toEqual({ effects: true });
+    const got = (await b.workspace.load()).conversations[0];
+    expect(got.unread).toBe(false);
+    expect(got.msgs).toEqual([{ id: 'm1', me: true, text: 'Hello', at: NOW.toISOString(), status: 'saved', error: expect.stringContaining('without a server') }]);
+  });
+
+  it('a test run changes nothing', async () => {
+    const b = local();
+    const wf = { id: 'w3', name: 'Dry', on: false, steps: [makeStep('manual'), makeStep('lead.set_stage', { stage: 'lost' })] };
+    await b.workspace.push([ch('workflow', 'w3', wf), ch('lead', 'a', lead('a'))]);
+    await b.workspace.push([ch('run', 'r1', { id: 'r1', workflowId: 'w3', test: true, subject: { leadId: 'a' } })]);
+    const ws = await b.workspace.load();
+    expect(ws.runs[0]).toMatchObject({ status: 'Completed', test: true });
+    expect(ws.runs[0].log![0].text).toBe('Would: Move the lead to Lost');
+    expect(ws.leads[0].stage).toBe('new');
+  });
+
+  it('continues a waiting run once its delay has passed', async () => {
+    let t = NOW;
+    const b = createDemoBackend(() => t, false);
+    const wf = { id: 'w4', name: 'Later', on: true, steps: [makeStep('lead.created'), makeStep('wait', { amount: '2', unit: 'hours' }), makeStep('lead.add_tag', { tag: 'waited' })] };
+    await b.workspace.push([ch('workflow', 'w4', wf), ch('lead', 'a', lead('a'))]);
+    expect((await b.workspace.load()).runs[0].status).toBe('Waiting');
+    t = new Date(NOW.getTime() + 2 * 3_600_000 + 1000);
+    const ws = await b.workspace.load();
+    expect(ws.runs[0].status).toBe('Completed');
+    expect(ws.leads[0].tags).toEqual(['waited']);
   });
 });
 

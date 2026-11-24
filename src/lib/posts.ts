@@ -16,6 +16,10 @@ const TAG: Record<PostStatus | RunStatus, string> = {
   Published: 'tag-neutral',
   Completed: 'tag-accent',
   'Awaiting approval': 'tag-outline',
+  Waiting: 'tag-outline',
+  Stopped: 'tag-neutral',
+  Rejected: 'tag-neutral',
+  Failed: 'tag-outline',
 };
 export const statusTag = (s: PostStatus | RunStatus): string => `tag ${TAG[s] ?? 'tag-neutral'}`;
 

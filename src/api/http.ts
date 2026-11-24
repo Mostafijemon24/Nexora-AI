@@ -71,7 +71,12 @@ export function createHttpBackend(baseUrl: string, opts: HttpOptions): Backend {
       metrics: (range) => get(`/v1/workspace/metrics?range=${range}`),
       push: async (changes) => {
         // Sent one at a time and in order; each id is its idempotency key, so a retry cannot duplicate.
-        for (const c of changes) await call('POST', '/v1/workspace/changes', c, { 'Idempotency-Key': c.id });
+        let effects = false;
+        for (const c of changes) {
+          const r = await call<{ effects?: boolean } | undefined>('POST', '/v1/workspace/changes', c, { 'Idempotency-Key': c.id });
+          if (r?.effects) effects = true;
+        }
+        return { effects };
       },
     },
     ai: {
@@ -82,9 +87,11 @@ export function createHttpBackend(baseUrl: string, opts: HttpOptions): Backend {
     leads: { importCsv: (csv) => post('/v1/leads/import', { csv }) },
     integrations: {
       test: (id) => post(`/v1/integrations/${encodeURIComponent(id)}/test`),
-      connect: (id, apiKey) => post(`/v1/integrations/${encodeURIComponent(id)}/connect`, apiKey ? { apiKey } : {}),
+      connect: (id, input) => post(`/v1/integrations/${encodeURIComponent(id)}/connect`, typeof input === 'string' ? (input ? { apiKey: input } : {}) : input ? { fields: input } : {}),
       disconnect: (id) => call('DELETE', `/v1/integrations/${encodeURIComponent(id)}`),
+      sync: (id) => post(`/v1/integrations/${encodeURIComponent(id)}/sync`),
     },
+    posts: { publish: (id) => post(`/v1/posts/${encodeURIComponent(id)}/publish`) },
     providers: {
       verifyKey: async (name, key) => (await post<{ verified: boolean }>('/v1/ai/providers/verify', { name, key })).verified,
       openRouterModels: () => get('/v1/ai/openrouter/models'),

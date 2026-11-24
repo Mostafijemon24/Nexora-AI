@@ -2,9 +2,9 @@
 // page is opened, and again from the "?" button in the header.
 
 import type { ScreenId } from '../lib/types';
-import type { AiTab, ContentTab, SettingsTab } from '../state/store';
+import type { AiTab, ContentTab, LeadsTab, SettingsTab } from '../state/store';
 
-export interface TourTabs { aiTab?: AiTab; csTab?: ContentTab; setTab?: SettingsTab }
+export interface TourTabs { aiTab?: AiTab; csTab?: ContentTab; setTab?: SettingsTab; leadsTab?: LeadsTab }
 
 export interface TourStep {
   /** `data-tour` value of the element to point at. Without one, or when it is not on screen, the step is centred. */
@@ -23,7 +23,7 @@ export const TOUR: Record<ScreenId, TourStep[]> = {
     },
     {
       target: 'nav',
-      title: 'Seven pages',
+      title: 'Nine pages',
       body: 'One page for each part of the work. Every page shows its own short tour the first time you open it.',
     },
     {
@@ -52,6 +52,37 @@ export const TOUR: Record<ScreenId, TourStep[]> = {
       body: 'This button replays the tour for the page you are on.',
     },
   ],
+  leads: [
+    {
+      target: 'leads-tabs',
+      title: 'Your leads, three ways',
+      body: 'A list you can search and filter, a pipeline by stage, and campaigns that group leads around one goal.',
+    },
+    {
+      target: 'leads-tools',
+      tabs: { leadsTab: 'list' },
+      title: 'Add, import and export',
+      body: 'Add a lead by hand or import a CSV with name and company columns. Export gives you the list you are looking at, with scores, as a spreadsheet file.',
+    },
+    {
+      target: 'leads-table',
+      tabs: { leadsTab: 'list' },
+      title: 'Open a lead, or change many at once',
+      body: 'Select a name to see and edit its details, tags and notes. Tick several leads to move them to a stage, tag them, add them to a campaign or delete them together.',
+    },
+    {
+      target: 'leads-pipeline',
+      tabs: { leadsTab: 'pipeline' },
+      title: 'Move leads through the pipeline',
+      body: 'New, Contacted, Interested, Converted and Lost. Drag a lead to another stage or use its arrow buttons. A stage change can start a workflow.',
+    },
+    {
+      target: 'leads-campaigns',
+      tabs: { leadsTab: 'campaigns' },
+      title: 'Measure a campaign',
+      body: 'Create a campaign, add leads to it from the list, and see how many were contacted, replied and converted.',
+    },
+  ],
   ai: [
     {
       target: 'ai-tabs',
@@ -68,7 +99,7 @@ export const TOUR: Record<ScreenId, TourStep[]> = {
       target: 'ai-leads',
       tabs: { aiTab: 'scoring' },
       title: 'Leads ranked by match',
-      body: 'Import leads as a CSV on the Integrations page. Each one gets a score and a confidence value; missing data is never guessed.',
+      body: 'Every lead on the Leads page gets a score and a confidence value here; missing data is never guessed.',
     },
     {
       target: 'ai-chat',
@@ -118,7 +149,7 @@ export const TOUR: Record<ScreenId, TourStep[]> = {
     {
       target: 'inbox-notice',
       title: 'Where conversations come from',
-      body: 'Only manual import and approved connectors. Your LinkedIn private inbox is never accessed.',
+      body: 'From the email and WhatsApp accounts you connect, from workflows, and from what you add yourself. Your LinkedIn private inbox is never accessed.',
     },
     {
       target: 'inbox-list',
@@ -128,7 +159,7 @@ export const TOUR: Record<ScreenId, TourStep[]> = {
     {
       target: 'inbox-thread',
       title: 'Reply with help',
-      body: 'An open conversation shows its intent, a suggested reply that needs your approval, and internal notes. Create follow-up adds a task to the dashboard.',
+      body: 'Write a reply or use the suggested one. It is sent by email or WhatsApp when that channel is connected and the conversation has an address; otherwise it is kept here and marked as not sent. Create follow-up adds a task to the dashboard.',
     },
   ],
   automation: [
@@ -140,12 +171,34 @@ export const TOUR: Record<ScreenId, TourStep[]> = {
     {
       target: 'auto-editor',
       title: 'Build it step by step',
-      body: 'A workflow starts with a trigger. Add conditions, delays, approvals and actions after it. Actions LinkedIn does not permit are not offered.',
+      body: 'A workflow starts with a trigger: a new lead, a stage change, a received message, a post status or a schedule. Add conditions, waits, approvals and actions after it, each with its own settings. Actions LinkedIn does not permit are not offered.',
     },
     {
       target: 'auto-runs',
       title: 'Run history',
-      body: 'Every workflow has a Test run button and a history of its runs. A run with an approval step waits until you approve it.',
+      body: 'A workflow that is switched on runs by itself when its trigger fires. Test run shows what each step would do without changing anything. A run with an approval step waits until you approve or reject it.',
+    },
+  ],
+  reports: [
+    {
+      target: 'rep-range',
+      title: 'Choose the period',
+      body: 'The report covers leads added, and messages and workflow runs dated, in the last 7, 30 or 90 days.',
+    },
+    {
+      target: 'rep-rates',
+      title: 'How outreach is going',
+      body: 'The share of leads you contacted, of contacted leads who replied, and of all leads who converted. A rate shows a dash until there is something to measure.',
+    },
+    {
+      target: 'rep-ai',
+      title: 'AI usage and cost',
+      body: 'Requests, tokens and cost for each AI provider this month. With no server connected, nothing is sent to a provider, so this stays at zero.',
+    },
+    {
+      target: 'rep-export',
+      title: 'Take the numbers with you',
+      body: 'Export the report, or every lead with its score, as a CSV file for a spreadsheet.',
     },
   ],
   integrations: [
@@ -157,12 +210,12 @@ export const TOUR: Record<ScreenId, TourStep[]> = {
     {
       target: 'int-import',
       title: 'Import your leads',
-      body: 'A good first step: choose a CSV with name and company columns. Title, industry, size and country are optional. The leads are scored on the AI Intelligence page.',
+      body: 'Choose a CSV with name and company columns. Title, industry, size, country, email, phone, tags and stage are optional. The leads appear on the Leads page with a score.',
     },
     {
       target: 'int-list',
       title: 'Connect your tools',
-      body: 'AI providers, CRM, messaging and automation services. Filter by category, then choose Connect. Connecting needs a Nexora AI server, so it is switched off in a build that runs without one.',
+      body: 'AI providers, CRM, email, WhatsApp and automation services. Filter by category, then choose Connect. Connecting needs a Nexora AI server, so it is switched off in a build that runs without one.',
     },
   ],
   settings: [

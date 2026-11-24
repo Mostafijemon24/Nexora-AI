@@ -1,6 +1,6 @@
 // Domain types shared by the UI, the backend client and the offline queue.
 
-export type ScreenId = 'dashboard' | 'ai' | 'content' | 'inbox' | 'automation' | 'integrations' | 'settings';
+export type ScreenId = 'dashboard' | 'leads' | 'ai' | 'content' | 'inbox' | 'automation' | 'reports' | 'integrations' | 'settings';
 export type Platform = 'web' | 'windows' | 'macos' | 'linux' | 'android';
 export type Theme = 'light' | 'dark';
 export type Range = '7d' | '30d' | '90d';
@@ -16,6 +16,12 @@ export interface DeviceInfo {
   appVersion: string;
 }
 
+/** Where a lead is in the pipeline. `lost` leaves the funnel; the other four are its steps, in order. */
+export type LeadStage = 'new' | 'contacted' | 'interested' | 'converted' | 'lost';
+export const LEAD_STAGES: LeadStage[] = ['new', 'contacted', 'interested', 'converted', 'lost'];
+export const STAGE_LABEL: Record<LeadStage, string> = { new: 'New', contacted: 'Contacted', interested: 'Interested', converted: 'Converted', lost: 'Lost' };
+export interface LeadNote { text: string; at: string }
+
 export interface Lead {
   id: string;
   name: string;
@@ -24,6 +30,37 @@ export interface Lead {
   industry: string | null;
   size: number | null;
   country: string | null;
+  email: string | null;
+  phone: string | null;
+  /** Public profile address the user entered or imported. Never fetched or scraped. */
+  linkedin: string | null;
+  stage: LeadStage;
+  tags: string[];
+  notes: LeadNote[];
+  campaignId: string | null;
+  createdAt: string;
+}
+
+/** A lead with only the fields a person must type; the rest take their defaults. */
+export function newLead(id: string, name: string, company: string, at: string, rest: Partial<Lead> = {}): Lead {
+  return {
+    id, name, company, title: null, industry: null, size: null, country: null, email: null, phone: null, linkedin: null,
+    stage: 'new', tags: [], notes: [], campaignId: null, createdAt: at, ...rest,
+  };
+}
+
+export type CampaignStatus = 'Draft' | 'Active' | 'Paused' | 'Completed';
+export const CAMPAIGN_STATUSES: CampaignStatus[] = ['Draft', 'Active', 'Paused', 'Completed'];
+export interface Campaign {
+  id: string;
+  name: string;
+  /** What the campaign is meant to achieve, in the user's words. */
+  goal: string;
+  channel: string;
+  status: CampaignStatus;
+  /** YYYY-MM-DD, or null when not set. */
+  startDate: string | null;
+  endDate: string | null;
 }
 
 export interface Icp {
@@ -44,17 +81,33 @@ export interface Post {
   status: PostStatus;
   /** Calendar day as YYYY-MM-DD, or null when unscheduled. */
   date: string | null;
+  /** Where the post is on LinkedIn, once the server has published it there. */
+  publishedUrl?: string;
+  /** Why the last attempt to publish it failed. */
+  publishError?: string;
 }
 
 export type Tone = 'Direct' | 'Story' | 'Data';
 export interface GeneratedPost { hook: string; body: string; cta: string; tags: string }
 
-export interface Message { me: boolean; text: string; at: string; queued?: boolean }
+/**
+ * `status` is set by the server for a reply it tried to deliver: `sent` through the conversation's
+ * channel, `failed` (with `error`), or `saved` when the channel cannot deliver and the reply is only kept.
+ */
+export interface Message {
+  me: boolean; text: string; at: string; queued?: boolean;
+  id?: string; status?: 'sent' | 'failed' | 'saved'; error?: string;
+}
+/** Channels a reply can be delivered through once connected. Any other channel only keeps the reply. */
+export const SEND_CHANNELS = ['Email', 'WhatsApp'] as const;
 export interface Conversation {
   id: string;
   name: string;
   company: string;
   channel: string;
+  /** Where replies go: an email address or a phone number in international format. */
+  address?: string | null;
+  leadId?: string | null;
   unread: boolean;
   important: boolean;
   intent: string;
@@ -66,12 +119,31 @@ export interface Conversation {
 export interface SavedReply { title: string; text: string }
 
 export type StepType = 'Trigger' | 'Condition' | 'Action' | 'Delay' | 'Approval' | 'Notification' | 'Update' | 'Stop';
-export interface Step { type: StepType; label: string }
+/**
+ * One workflow step. `kind` and `config` say exactly what it does (see lib/workflow.ts); a step
+ * without a kind is a note from an older version and is skipped when the workflow runs.
+ */
+export interface Step { type: StepType; label: string; kind?: string; config?: Record<string, string> }
 export interface Workflow { id: string; name: string; on: boolean; steps: Step[] }
-export type RunStatus = 'Completed' | 'Awaiting approval';
-export interface Run { id: string; workflowId: string; name: string; steps: number; status: RunStatus; at: string }
+export type RunStatus = 'Completed' | 'Awaiting approval' | 'Waiting' | 'Stopped' | 'Rejected' | 'Failed';
+export interface RunLog { step: number; text: string; ok: boolean; at: string }
+/** What a run is about: the lead, conversation or post that started it. */
+export interface RunSubject { leadId?: string; conversationId?: string; postId?: string; label?: string }
+export interface Run {
+  id: string; workflowId: string; name: string; steps: number; status: RunStatus; at: string;
+  /** Index of the next step to carry out. */
+  cursor?: number;
+  subject?: RunSubject;
+  log?: RunLog[];
+  /** When a waiting run continues. */
+  resumeAt?: string | null;
+  /** True for a run started with "Test run": it reports what each step would do and changes nothing. */
+  test?: boolean;
+}
 
 export type IntegrationCategory = 'AI' | 'CRM' | 'Automation' | 'Communication' | 'Developer' | 'Social';
+/** One credential an integration asks for when it is connected. */
+export interface IntegrationField { key: string; label: string; placeholder?: string; secret?: boolean; optional?: boolean }
 export interface Integration {
   id: string;
   name: string;
@@ -79,9 +151,26 @@ export interface Integration {
   desc: string;
   oauth: boolean;
   connected: boolean;
+  /** Credentials to type in. Absent for sign-in (OAuth) integrations and for a single API key. */
+  fields?: IntegrationField[];
+  /** True when connecting asks for nothing and only issues an address. */
+  hook?: boolean;
+  /** When this connection last exchanged data, and what happened. */
+  sync?: { at: string; note: string; ok: boolean };
 }
+/** Shown once after connecting: values to copy into the other system. */
+export interface ConnectDetail { label: string; value: string }
 
-export interface Task { id: string; text: string; due: string; done: boolean }
+export interface Task {
+  id: string;
+  text: string;
+  /** Free-text due label of older tasks. New tasks use `dueDate`. */
+  due: string;
+  /** YYYY-MM-DD. */
+  dueDate?: string | null;
+  leadId?: string | null;
+  done: boolean;
+}
 export interface ActivityItem { text: string; at: string }
 
 export interface Profile { name: string; email: string; workspace: string }
@@ -115,7 +204,12 @@ export interface SyncSettings {
 
 export interface Session { id: string; device: string; meta: string; current: boolean }
 
-export interface AiUsage { postsGenerated: number; tokensThisMonth: number; costThisMonthUsd: number }
+export interface ProviderUsage {
+  provider: string; requests: number; tokens: number; costUsd: number;
+  /** False when some requests used a model the server has no price for, so the cost is incomplete. */
+  priced: boolean;
+}
+export interface AiUsage { postsGenerated: number; tokensThisMonth: number; costThisMonthUsd: number; byProvider?: ProviderUsage[] }
 
 export interface WorkspacePlan { name: string; hosting: string }
 
@@ -124,6 +218,7 @@ export interface WorkspaceSnapshot {
   plan: WorkspacePlan;
   profile: Profile;
   leads: Lead[];
+  campaigns: Campaign[];
   icp: Icp;
   prompts: Prompt[];
   posts: Post[];
@@ -143,6 +238,8 @@ export interface WorkspaceSnapshot {
   aiUsage: AiUsage;
   brandVoice: string;
   automationDailyRunLimit: number;
+  /** Publish approved posts to LinkedIn by themselves on the day they are scheduled for. */
+  autoPublish?: boolean;
 }
 
 export interface DashboardMetrics {

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { createApp } from '../src/app.ts';
 import { loadConfig } from '../src/config.ts';
-import type { Ctx } from '../src/context.ts';
+import type { Ctx, MailboxMessage } from '../src/context.ts';
 import { createDb, migrate } from '../src/db.ts';
 import { createLicense, type NewLicense } from '../src/license/service.ts';
 import type { Mail } from '../src/mail.ts';
@@ -18,6 +18,10 @@ export interface Harness {
   mails: Mail[];
   /** Outbound HTTP the code under test made. */
   calls: { url: string; init?: RequestInit }[];
+  /** Email the code under test sent through a workspace's own SMTP account. */
+  sent: { account: { host: string; port: string; user: string; password: string }; mail: any }[];
+  /** Messages waiting in workspace mailboxes, by IMAP user name. */
+  inbox: Map<string, MailboxMessage[]>;
   /** Replace to script provider responses. */
   respond: (url: string, init?: RequestInit) => Response | Promise<Response>;
   setNow(d: Date | string): void;
@@ -38,6 +42,7 @@ export async function harness(): Promise<Harness> {
   let now = new Date('2026-11-23T09:00:00Z');
   const h = {
     mails: [] as Mail[], calls: [] as { url: string; init?: RequestInit }[],
+    sent: [] as Harness['sent'], inbox: new Map<string, MailboxMessage[]>(),
     respond: (() => new Response('{}', { status: 500 })) as Harness['respond'],
   };
   const ctx: Ctx = {
@@ -49,6 +54,17 @@ export async function harness(): Promise<Harness> {
       h.calls.push({ url, init });
       return h.respond(url, init);
     }) as typeof fetch,
+    smtp: (account) => ({
+      verify: async () => { if (account.password === 'wrong') throw new Error('Invalid login'); },
+      sendMail: async (mail) => { h.sent.push({ account, mail }); return { messageId: `<sent-${h.sent.length}@test>` }; },
+    }),
+    mailbox: (account) => ({
+      fetchAfter: async (uid) => {
+        if (account.password === 'wrong') throw new Error('Invalid login');
+        const all = h.inbox.get(account.user) ?? [];
+        return { validity: '1', lastUid: all.at(-1)?.uid ?? 0, messages: uid === null ? [] : all.filter((m) => m.uid > uid) };
+      },
+    }),
   };
   return Object.assign(h, {
     ctx, app: createApp(ctx),

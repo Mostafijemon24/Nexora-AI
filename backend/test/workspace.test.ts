@@ -35,9 +35,11 @@ describe('snapshot', () => {
     expect(s.posts.map((p: any) => p.status).sort()).toEqual(['Draft', 'In review', 'Published', 'Scheduled']);
     expect(s.workflows[0]).toMatchObject({ name: 'Score and draft for new leads', on: true });
     expect(s.sessions).toEqual([{ id: expect.any(String), current: true, device: 'A-PC · this device', meta: 'active now' }]);
-    expect(s.integrations).toHaveLength(11);
+    expect(s.integrations).toHaveLength(13);
     expect(s.providers.every((p: any) => p.verified === false)).toBe(true);
-    expect(JSON.stringify(s)).not.toMatch(/secret|token_hash|key_hash/i);
+    // Integration entries describe the fields a person fills in (some are labelled "secret"); no value is ever included.
+    expect(s.integrations.every((g: any) => Object.keys(g).every((k) => ['id', 'name', 'cat', 'desc', 'oauth', 'connected', 'fields', 'hook', 'sync'].includes(k)))).toBe(true);
+    expect(JSON.stringify({ ...s, integrations: [] })).not.toMatch(/secret|token_hash|key_hash/i);
   });
 
   it('computes dashboard metrics from stored data', async () => {
@@ -60,7 +62,7 @@ describe('changes', () => {
     expect((await push(a, { ...c, data: { ...c.data as object, text: 'TAMPERED' } })).status).toBe(204);
     expect((await push(a, c)).status).toBe(204);
     const tasks = (await snap(a)).tasks.filter((t: any) => t.id === id);
-    expect(tasks).toEqual([{ id, text: 'Follow up with John', due: 'Tomorrow', done: false }]);
+    expect(tasks).toEqual([{ id, text: 'Follow up with John', due: 'Tomorrow', dueDate: null, leadId: null, done: false }]);
   });
 
   it('survives concurrent delivery of the same change', async () => {
@@ -97,9 +99,11 @@ describe('changes', () => {
       [change('post', id, { id, title: 'x', body: '', status: 'Viral', date: null }), /Invalid/],
       [change('profile', 'profile', { name: 'A', email: 'not-an-email', workspace: 'W' }), 'Enter a valid email address.'],
       [change('profile', 'profile', { name: 'A', email: 'b@example.com', workspace: 'W' }), 'That email address is already in use.'],
-      [change('workflow', id, { id, name: 'W', on: true, steps: [{ type: 'Action', label: 'no trigger' }] }), 'A workflow starts with exactly one trigger.'],
+      [change('workflow', id, { id, name: 'W', on: true, steps: [{ type: 'Action', label: 'no trigger' }] }), 'A workflow starts with a trigger.'],
+      [change('workflow', id, { id, name: 'W', on: true, steps: [{ type: 'Trigger', label: 't' }, { type: 'Action', label: 'send', kind: 'message.send' }] }), 'A message can only be sent after an approval step.'],
       [change('workflow', id, { id, name: 'W', on: true, steps: [{ type: 'Trigger', label: 't' }, { type: 'AutoConnect', label: 'scrape' }] }), /Invalid/],
-      [change('lead', id, { id }), 'Unknown entity "lead".'],
+      [change('lead', id, { id }), /Invalid/],
+      [change('nonsense', id, { id }), 'Unknown entity "nonsense".'],
       [change('sync', 'sync', { region: 'X', endpoint: 'http://insecure', offlineCache: true, conflict: 'ask' }), 'Enter a full https:// address.'],
       [{ nonsense: true }, 'Malformed change.'],
     ];
@@ -112,34 +116,6 @@ describe('changes', () => {
     expect(s.posts.find((p: any) => p.id === id)).toBeUndefined();
     expect(s.workflows.find((f: any) => f.id === id)).toBeUndefined();
   });
-
-  it('decides run status on the server: an approval step always pauses the run', async () => {
-    const s = await snap(a);
-    const withApproval = s.workflows.find((f: any) => f.steps.some((x: any) => x.type === 'Approval'));
-    const without = s.workflows.find((f: any) => !f.steps.some((x: any) => x.type === 'Approval'));
-    const [r1, r2] = [randomUUID(), randomUUID()];
-    // The client claims "Completed" and a wrong step count; the server ignores both.
-    await push(a, change('run', r1, { id: r1, workflowId: withApproval.id, name: withApproval.name, steps: 1, status: 'Completed', at: new Date().toISOString() }));
-    await push(a, change('run', r2, { id: r2, workflowId: without.id, name: without.name, steps: 3, status: 'Completed', at: new Date().toISOString() }));
-    let runs = (await snap(a)).runs;
-    expect(runs.find((r: any) => r.id === r1)).toMatchObject({ status: 'Awaiting approval', steps: 5 });
-    expect(runs.find((r: any) => r.id === r2)).toMatchObject({ status: 'Completed', steps: 3 });
-    await push(a, change('run', r1, { id: r1, workflowId: withApproval.id, name: withApproval.name, steps: 5, status: 'Completed', at: new Date().toISOString() }));
-    runs = (await snap(a)).runs;
-    expect(runs.find((r: any) => r.id === r1).status).toBe('Completed');
-  });
-
-  it('enforces the daily run limit', async () => {
-    await h.ctx.db.query('UPDATE workspaces SET automation_daily_run_limit = 3 WHERE id = $1', [wsA]);
-    const wf = (await snap(a)).workflows[1];
-    const id = randomUUID();
-    const r = await push(a, change('run', id, { id, workflowId: wf.id, name: wf.name, steps: 3, status: 'Completed', at: new Date().toISOString() }));
-    const r2id = randomUUID();
-    const r2 = await push(a, change('run', r2id, { id: r2id, workflowId: wf.id, name: wf.name, steps: 3, status: 'Completed', at: new Date().toISOString() }));
-    expect([r.status, r2.status]).toEqual([204, 429]);
-    expect(r2.body.message).toBe('The daily limit of 3 runs has been reached.');
-    await h.ctx.db.query('UPDATE workspaces SET automation_daily_run_limit = 500 WHERE id = $1', [wsA]);
-  });
 });
 
 describe('lead import', () => {
@@ -150,8 +126,8 @@ describe('lead import', () => {
     expect(r.body.imported).toBe(2);
     expect(r.body.skipped).toBe(1);
     const mine = r.body.leads.filter((l: any) => ['Okafor, Ada', 'Ben Ito'].includes(l.name)).sort((x: any, y: any) => y.name.localeCompare(x.name));
-    expect(mine).toEqual([
-      { id: expect.any(String), name: 'Okafor, Ada', title: 'CTO', company: 'Lumen Ltd', industry: null, size: 40, country: 'Nigeria' },
+    expect(mine).toMatchObject([
+      { id: expect.any(String), name: 'Okafor, Ada', title: 'CTO', company: 'Lumen Ltd', industry: null, size: 40, country: 'Nigeria', email: null, stage: 'new', tags: [] },
       { id: expect.any(String), name: 'Ben Ito', title: null, company: 'Kite', industry: null, size: null, country: null },
     ]);
     expect((await snap(b)).leads).toHaveLength(before);

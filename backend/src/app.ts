@@ -5,9 +5,12 @@ import type { AiTask, DeviceInfo, ProviderName, Range } from '../../src/lib/type
 import * as gateway from './ai/gateway.ts';
 import type { Ctx } from './context.ts';
 import { badRequest, HttpError, licenseRequired } from './errors.ts';
+import * as inbound from './inbound.ts';
 import * as integrations from './integrations.ts';
 import * as license from './license/service.ts';
 import type { Auth, Client } from './license/service.ts';
+import { syncNow } from './sync/index.ts';
+import { publishPost } from './sync/linkedin.ts';
 import { applyChange } from './workspace/changes.ts';
 import { importLeadsFor } from './workspace/leads.ts';
 import { loadLeads, loadMetrics, loadSnapshot, PROVIDERS } from './workspace/snapshot.ts';
@@ -109,6 +112,15 @@ export function createApp(ctx: Ctx) {
   app.get('/v1/integrations/:id/callback', async (c) =>
     c.redirect(await integrations.oauthCallback(ctx, c.req.param('id'), { code: c.req.query('code'), state: c.req.query('state'), error: c.req.query('error') })));
 
+  // Incoming messages from other systems. The unguessable token in the address identifies the connection.
+  app.get('/v1/hooks/wa/:token', async (c) =>
+    c.text(await inbound.whatsappVerify(ctx, c.req.param('token'), { mode: c.req.query('hub.mode'), verifyToken: c.req.query('hub.verify_token'), challenge: c.req.query('hub.challenge') })));
+  app.post('/v1/hooks/wa/:token', async (c) => {
+    await inbound.whatsappReceive(ctx, c.req.param('token'), await c.req.text(), c.req.header('x-hub-signature-256'));
+    return c.json({ ok: true });
+  });
+  app.post('/v1/hooks/in/:token', async (c) => c.json({ ok: true, added: await inbound.hookReceive(ctx, c.req.param('token'), await json(c)) }));
+
   // ── everything below needs a session backed by an active license on this device ──
   // Checked on every request, so revocation, expiry, transfer and deactivation take effect at once.
   app.use('/v1/*', async (c, next) => {
@@ -130,7 +142,10 @@ export function createApp(ctx: Ctx) {
     if (range !== '7d' && range !== '30d' && range !== '90d') throw badRequest('range must be 7d, 30d or 90d.');
     return c.json(await loadMetrics(ctx, c.get('auth'), range as Range));
   });
-  app.post('/v1/workspace/changes', async (c) => { await applyChange(ctx, c.get('auth'), await json(c)); return c.body(null, 204); });
+  app.post('/v1/workspace/changes', async (c) => {
+    const r = await applyChange(ctx, c.get('auth'), await json(c));
+    return r.effects ? c.json(r) : c.body(null, 204);
+  });
 
   app.post('/v1/leads/import', async (c) => {
     const auth = c.get('auth');
@@ -155,8 +170,10 @@ export function createApp(ctx: Ctx) {
   app.post('/v1/integrations/:id/test', async (c) => c.json(await integrations.test(ctx, c.get('auth'), c.req.param('id'))));
   app.post('/v1/integrations/:id/connect', async (c) => {
     const b = await c.req.json().catch(() => ({}));
-    return c.json(await integrations.connect(ctx, c.get('auth'), c.req.param('id'), typeof b?.apiKey === 'string' ? b.apiKey : undefined));
+    return c.json(await integrations.connect(ctx, c.get('auth'), c.req.param('id'), b?.fields && typeof b.fields === 'object' ? b.fields : b?.apiKey));
   });
+  app.post('/v1/integrations/:id/sync', async (c) => c.json(await syncNow(ctx, c.get('auth').workspaceId, c.req.param('id'))));
+  app.post('/v1/posts/:id/publish', async (c) => c.json(await publishPost(ctx, c.get('auth').workspaceId, c.req.param('id'))));
   app.delete('/v1/integrations/:id', async (c) => { await integrations.disconnect(ctx, c.get('auth'), c.req.param('id')); return c.body(null, 204); });
 
   app.post('/v1/backups', async (c) => {

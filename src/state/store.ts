@@ -5,7 +5,7 @@ import { bridge, previewPlatform } from '../platform/bridge';
 import { NAV } from '../shell/nav';
 import { TOUR, type TourTabs } from '../tour/steps';
 import type {
-  Change, DashboardMetrics, DeviceInfo, LicenseEvent, LicenseState, Platform, Range, ScreenId, Theme, WorkspaceSnapshot,
+  Change, ConnectDetail, DashboardMetrics, IntegrationField, DeviceInfo, LicenseEvent, LicenseState, Platform, Range, ScreenId, Theme, WorkspaceSnapshot,
 } from '../lib/types';
 
 export interface DialogSpec {
@@ -14,10 +14,15 @@ export interface DialogSpec {
   confirm: string;
   /** Label of a required secret field (e.g. "API key"); omitted for plain confirmations. */
   field?: string;
-  run: (value: string) => void;
+  /** Several named fields to fill in instead of one. Their values arrive as the second argument of `run`. */
+  fields?: IntegrationField[];
+  /** Values to show for copying. A dialog with details has no Cancel button. */
+  details?: ConnectDetail[];
+  run: (value: string, values: Record<string, string>) => void;
 }
 
 export type AiTab = 'scoring' | 'chat' | 'prompts';
+export type LeadsTab = 'list' | 'pipeline' | 'campaigns';
 export type ContentTab = 'gen' | 'posts' | 'cal';
 export type SettingsTab = 'profile' | 'ai' | 'security' | 'sync' | 'license' | 'appearance';
 export type WidgetId = 'kpi' | 'perf' | 'funnel' | 'tasks' | 'ai' | 'activity' | 'health';
@@ -43,6 +48,9 @@ export interface AppState {
 
   screen: ScreenId;
   aiTab: AiTab;
+  leadsTab: LeadsTab;
+  /** The conversation to show when the inbox opens. */
+  inboxId: string | null;
   csTab: ContentTab;
   setTab: SettingsTab;
   range: Range;
@@ -63,7 +71,7 @@ export interface AppState {
   thinking: boolean;
 
   init(backend: Backend): Promise<void>;
-  go(screen: ScreenId, tabs?: Partial<Pick<AppState, 'aiTab' | 'csTab' | 'setTab'>>): void;
+  go(screen: ScreenId, tabs?: Partial<Pick<AppState, 'aiTab' | 'csTab' | 'setTab' | 'leadsTab' | 'inboxId'>>): void;
   set(patch: Partial<AppState>): void;
   setTheme(theme: Theme): void;
   setCollapsed(collapsed: boolean): void;
@@ -86,6 +94,8 @@ export interface AppState {
   commit(message: string, ...changes: Change[]): void;
   /** Sends or queues writes without an activity entry or toast (e.g. per-keystroke edits). */
   save(...changes: Change[]): void;
+  /** Reloads the workspace from the backend, unless a write is on its way. */
+  refresh(): Promise<void>;
   goOffline(): void;
   goOnline(): Promise<void>;
   onLicensed(license: LicenseState, token: string): Promise<void>;
@@ -145,26 +155,58 @@ export const useApp = create<AppState>((set, get) => {
     void get().setRange(get().range);
   };
 
-  const flush = async (changes: Change[]) => {
+  /** Writes in flight, and a counter that moves with every write, so a reload never overwrites newer local edits. */
+  let inflight = 0;
+  let writeSeq = 0;
+  let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+
+  /**
+   * Reloads the workspace from the backend: after a write that set more in motion, and on a timer
+   * to pick up what the server did on its own (incoming messages, workflow runs, sync). Skipped
+   * while a write is on its way, and retried shortly after.
+   */
+  const refresh = async (attempt = 0): Promise<void> => {
+    const s = get();
+    if (s.boot !== 'ready' || s.isOffline() || !s.backend) return;
+    const retry = () => { if (attempt < 5) { clearTimeout(refreshTimer); refreshTimer = setTimeout(() => void refresh(attempt + 1), 800); } };
+    if (inflight > 0) return retry();
+    const seq = writeSeq;
     try {
-      await get().backend!.workspace.push(changes);
+      const ws = await s.backend.workspace.load();
+      if (inflight > 0 || seq !== writeSeq || get().boot !== 'ready') return retry();
+      set({ ws, metrics: {} });
+      cacheWorkspace();
+      void get().setRange(get().range);
+    } catch { /* the next poll tries again */ }
+  };
+
+  const flush = async (changes: Change[]) => {
+    inflight++;
+    writeSeq++;
+    let reload = false;
+    try {
+      reload = (await get().backend!.workspace.push(changes)).effects;
     } catch (e) {
       if (get().platform === 'web') {
         get().notify(`Could not save: ${errText(e)}`);
-        return;
+        reload = true; // show what the server actually holds
+      } else {
+        // Native: keep the write and retry on the next sync instead of losing it.
+        for (const c of changes) await bridge.queuePush(c);
+        set({ pending: await pendingCount() });
+        get().notify('Could not reach the server · saved locally, will sync');
       }
-      // Native: keep the write and retry on the next sync instead of losing it.
-      for (const c of changes) await bridge.queuePush(c);
-      set({ pending: await pendingCount() });
-      get().notify('Could not reach the server · saved locally, will sync');
+    } finally {
+      inflight--;
     }
+    if (reload) void refresh();
   };
 
   return {
     boot: 'loading', bootError: '', backend: null, device: null, platform: 'web', preview: false, compact: false,
     theme: 'light', collapsed: false, widgets: ALL_WIDGETS,
     online: true, syncing: false, pending: 0,
-    screen: 'dashboard', aiTab: 'scoring', csTab: 'gen', setTab: 'profile', range: '7d',
+    screen: 'dashboard', aiTab: 'scoring', leadsTab: 'list', inboxId: null, csTab: 'gen', setTab: 'profile', range: '7d',
     toast: '', dialog: null, tour: null, toured: [],
     license: null, licEvents: [], ws: null, metrics: {}, chat: [], chatInput: '', thinking: false,
 
@@ -233,8 +275,8 @@ export const useApp = create<AppState>((set, get) => {
     confirm(dialog) { set({ dialog }); },
 
     startTour(screen = get().screen) {
-      const { aiTab, csTab, setTab } = get();
-      set({ screen, tour: { screen, step: 0, restore: { aiTab, csTab, setTab } }, ...TOUR[screen][0].tabs });
+      const { aiTab, csTab, setTab, leadsTab } = get();
+      set({ screen, tour: { screen, step: 0, restore: { aiTab, csTab, setTab, leadsTab } }, ...TOUR[screen][0].tabs });
     },
     tourStep(delta) {
       const tour = get().tour;
@@ -277,6 +319,8 @@ export const useApp = create<AppState>((set, get) => {
       } else void flush(changes);
     },
 
+    refresh: () => refresh(),
+
     goOffline() {
       set({ online: false });
       get().notify('Working offline. Changes are queued locally.');
@@ -288,6 +332,9 @@ export const useApp = create<AppState>((set, get) => {
         if (queued.length) {
           await get().backend!.workspace.push(queued);
           await bridge.queueRemove(queued.map((c) => c.id));
+          // The queued writes may have started workflows or sent replies on the server.
+          const ws = await get().backend!.workspace.load().catch(() => null);
+          if (ws) set({ ws, metrics: {} });
         }
         get().update((ws) => ({
           conversations: ws.conversations.map((c) => ({ ...c, msgs: c.msgs.map((m) => (m.queued ? { ...m, queued: false } : m)) })),

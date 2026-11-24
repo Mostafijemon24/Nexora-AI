@@ -1,5 +1,5 @@
 import type {
-  ActivationResult, AiTask, Change, DashboardMetrics, DeviceInfo, GeneratedPost, Lead, LicenseEvent, LicenseState,
+  ActivationResult, AiTask, Change, ConnectDetail, DashboardMetrics, DeviceInfo, GeneratedPost, Lead, LicenseEvent, LicenseState,
   OpenRouterModel, ProviderName, Range, Tone, WorkspaceSnapshot,
 } from '../lib/types';
 
@@ -43,8 +43,11 @@ export interface Backend {
   workspace: {
     load(): Promise<WorkspaceSnapshot>;
     metrics(range: Range): Promise<DashboardMetrics>;
-    /** Applies writes in order. Each change id is an idempotency key: replays are no-ops. */
-    push(changes: Change[]): Promise<void>;
+    /**
+     * Applies writes in order. Each change id is an idempotency key: replays are no-ops.
+     * `effects` is true when the write set more in motion (a workflow ran, a reply was delivered), so the workspace should be reloaded.
+     */
+    push(changes: Change[]): Promise<{ effects: boolean }>;
   };
 
   ai: {
@@ -60,9 +63,19 @@ export interface Backend {
 
   integrations: {
     test(id: string): Promise<{ latencyMs: number }>;
-    /** Key-based integrations connect directly. OAuth ones return the provider URL to open. */
-    connect(id: string, apiKey?: string): Promise<{ redirectUrl?: string }>;
+    /**
+     * Connects with an API key, or with the named fields the integration asks for. Sign-in (OAuth)
+     * integrations return the provider URL to open; some return values to copy into the other system.
+     */
+    connect(id: string, input?: string | Record<string, string>): Promise<{ redirectUrl?: string; details?: ConnectDetail[] }>;
     disconnect(id: string): Promise<void>;
+    /** Exchanges data with a connected system now (CRM, calendar, mailbox). */
+    sync(id: string): Promise<{ ok: boolean; note: string }>;
+  };
+
+  posts: {
+    /** Publishes an approved post to LinkedIn through the official API. Returns its address there. */
+    publish(id: string): Promise<{ url: string }>;
   };
 
   providers: {

@@ -6,13 +6,19 @@
 // sample data instead (never stored), where connections are simulated, for previews and screenshots.
 
 import type { Backend, LicenseStatus } from './backend';
+import { funnel, inRange } from '../lib/analytics';
+import { CsvError, leadsFromCsv } from '../lib/csv';
 import { addDays, shortDate, toIsoDate, weekOf, fullDate } from '../lib/dates';
+import { CATALOG } from '../lib/integrations';
 import { rankLeads } from '../lib/scoring';
-import { PROVIDER_NAMES } from '../lib/types';
+import { newLead, PROVIDER_NAMES } from '../lib/types';
 import type {
-  ActivationResult, Change, DashboardMetrics, DeviceInfo, GeneratedPost, Integration, LicenseEvent, LicenseState, OpenRouterModel,
-  Range, Tone, WorkspaceSnapshot,
+  ActivationResult, Change, Conversation, DashboardMetrics, DeviceInfo, GeneratedPost, Integration, Lead, LicenseEvent, LicenseState, Message,
+  OpenRouterModel, Post, Range, Run, Task, Tone, WorkspaceSnapshot,
 } from '../lib/types';
+import {
+  advance, dispatch, makeStep, newRun, resume, scheduleDue, workflowProblem, type Dispatcher, type WfEvent, type WorkflowHost,
+} from '../lib/workflow';
 
 /** Demo license keys, one per server outcome. */
 export const DEMO_KEYS = {
@@ -26,22 +32,12 @@ export const DEMO_KEYS = {
 const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 const LS_KEY = 'nexora.demo.license';
 const LS_WORKSPACE = 'nexora.local.workspace';
+const LS_SCHEDULES = 'nexora.local.schedules';
 
-/** Every integration the app offers. Whether one is connected belongs to the workspace. */
-const CATALOG: Omit<Integration, 'connected'>[] = [
-  { id: 'li', name: 'LinkedIn', cat: 'Social', desc: 'Official OAuth. Approved scopes only.', oauth: true },
-  { id: 'oa', name: 'OpenAI', cat: 'AI', desc: 'Text and image generation.', oauth: false },
-  { id: 'ge', name: 'Google Gemini', cat: 'AI', desc: 'Content generation and research.', oauth: false },
-  { id: 'cl', name: 'Anthropic Claude', cat: 'AI', desc: 'Reply suggestions and analysis.', oauth: false },
-  { id: 'or', name: 'OpenRouter', cat: 'AI', desc: 'Bring your own key. Free and paid models from many providers.', oauth: false },
-  { id: 'hs', name: 'HubSpot', cat: 'CRM', desc: 'Two-way contact sync.', oauth: true },
-  { id: 'sf', name: 'Salesforce', cat: 'CRM', desc: 'Lead and account sync.', oauth: true },
-  { id: 'n8', name: 'n8n', cat: 'Automation', desc: 'Trigger external workflows by webhook.', oauth: false },
-  { id: 'wa', name: 'WhatsApp Cloud API', cat: 'Communication', desc: 'Approved business messaging channel.', oauth: false },
-  { id: 'gc', name: 'Google Calendar', cat: 'Communication', desc: 'Meeting and follow-up scheduling.', oauth: true },
-  { id: 'wh', name: 'Webhooks', cat: 'Developer', desc: 'Signed events for leads, posts and runs.', oauth: false },
-];
-const catalog = (connected: (id: string) => boolean = () => false): Integration[] => CATALOG.map((g) => ({ ...g, connected: connected(g.id) }));
+const catalog = (connected: (id: string) => boolean = () => false): Integration[] => CATALOG.map((g) => ({
+  id: g.id, name: g.name, cat: g.cat, desc: g.desc, oauth: g.kind === 'oauth', connected: connected(g.id),
+  ...(g.fields ? { fields: g.fields } : {}), ...(g.kind === 'hook' ? { hook: true } : {}),
+}));
 
 /** A new workspace: no leads, posts, conversations or workflows, nothing connected. */
 export function emptyWorkspace(): WorkspaceSnapshot {
@@ -49,6 +45,7 @@ export function emptyWorkspace(): WorkspaceSnapshot {
     plan: { name: 'Professional', hosting: 'Hybrid hosting' },
     profile: { name: '', email: '', workspace: 'My workspace' },
     leads: [],
+    campaigns: [],
     icp: { industry: '', title: '', sizeMin: '', sizeMax: '', location: '' },
     prompts: [],
     posts: [],
@@ -79,7 +76,10 @@ function storedWorkspace(): WorkspaceSnapshot {
     if (!raw) return fresh;
     const saved = JSON.parse(raw) as Partial<WorkspaceSnapshot>;
     // Nothing can be connected without a server, whatever an earlier build stored.
-    return { ...fresh, ...saved, integrations: fresh.integrations, providers: fresh.providers };
+    const ws = { ...fresh, ...saved, integrations: fresh.integrations, providers: fresh.providers };
+    // Data saved by an earlier version lacks the newer lead fields.
+    ws.leads = ws.leads.map((l) => newLead(l.id, l.name, l.company, l.createdAt ?? new Date().toISOString(), l));
+    return ws;
   } catch {
     return fresh; // storage unavailable or unreadable
   }
@@ -106,8 +106,7 @@ export function workspaceMetrics(ws: WorkspaceSnapshot, range: Range, now: Date)
         const from = new Date(y, mo - 2 + i, 1);
         return bar(from.toLocaleString('en', { month: 'short' }), between(from, new Date(y, mo - 1 + i, 1)));
       });
-  // Leads carry no stage yet, so every lead counts as new.
-  return { bars, funnel: [ws.leads.length, 0, 0, 0] };
+  return { bars, funnel: funnel(ws.leads.filter((l) => inRange(l.createdAt, range, now))) };
 }
 
 function sampleWorkspace(now: Date): WorkspaceSnapshot {
@@ -121,12 +120,16 @@ function sampleWorkspace(now: Date): WorkspaceSnapshot {
     plan: { name: 'Professional', hosting: 'Hybrid hosting' },
     profile: { name: 'Rafiq Hasan', email: 'rafiq@northwind.example', workspace: 'Northwind Growth' },
     leads: [
-      { id: 'l1', name: 'John Smith', title: 'Founder', company: 'Brightlane Media', industry: 'Marketing & Advertising', size: 42, country: 'United States' },
-      { id: 'l2', name: 'Sarah Johnson', title: 'CEO', company: 'Peak Digital', industry: 'Marketing', size: 130, country: 'United States' },
-      { id: 'l3', name: 'David Miller', title: 'Head of Growth', company: 'Orbit Labs', industry: 'Software', size: 60, country: 'Canada' },
-      { id: 'l4', name: 'Priya Nair', title: 'Founder & CEO', company: 'Signal Works', industry: 'Marketing', size: null, country: 'United States' },
-      { id: 'l5', name: 'Tom Becker', title: 'Marketing Director', company: 'Kiln Studio', industry: null, size: 18, country: 'Germany' },
-      { id: 'l6', name: 'Aisha Rahman', title: 'CEO', company: 'Delta Reach', industry: 'Marketing', size: 75, country: null },
+      newLead('l1', 'John Smith', 'Brightlane Media', at(-1, 9, 0), { title: 'Founder', industry: 'Marketing & Advertising', size: 42, country: 'United States', email: 'john@brightlane.example', stage: 'interested', tags: ['agency', 'priority'], campaignId: 'cm1', notes: [{ text: 'Asked about the team plan.', at: at(-1, 10, 0) }] }),
+      newLead('l2', 'Sarah Johnson', 'Peak Digital', at(-2, 9, 0), { title: 'CEO', industry: 'Marketing', size: 130, country: 'United States', email: 'sarah@peakdigital.example', stage: 'contacted', tags: ['agency'], campaignId: 'cm1' }),
+      newLead('l3', 'David Miller', 'Orbit Labs', at(-3, 9, 0), { title: 'Head of Growth', industry: 'Software', size: 60, country: 'Canada', phone: '+1 416 555 0134', stage: 'converted', campaignId: 'cm1' }),
+      newLead('l4', 'Priya Nair', 'Signal Works', at(-4, 9, 0), { title: 'Founder & CEO', industry: 'Marketing', country: 'United States' }),
+      newLead('l5', 'Tom Becker', 'Kiln Studio', at(-5, 9, 0), { title: 'Marketing Director', size: 18, country: 'Germany' }),
+      newLead('l6', 'Aisha Rahman', 'Delta Reach', at(-20, 9, 0), { title: 'CEO', industry: 'Marketing', size: 75, stage: 'contacted' }),
+    ],
+    campaigns: [
+      { id: 'cm1', name: 'Agency founders Q4', goal: 'Book 10 discovery calls with agency founders', channel: 'Email', status: 'Active', startDate: addDays(today, -14), endDate: addDays(today, 30) },
+      { id: 'cm2', name: 'SaaS growth leads', goal: 'Test interest among heads of growth', channel: 'WhatsApp', status: 'Draft', startDate: null, endDate: null },
     ],
     icp: { industry: 'Marketing', title: 'Founder, CEO', sizeMin: '10', sizeMax: '100', location: 'United States' },
     prompts: [
@@ -141,13 +144,13 @@ function sampleWorkspace(now: Date): WorkspaceSnapshot {
       { id: 'po4', title: 'Brand voice checklist', body: 'Five questions to keep every post consistent.', status: 'Published', date: week.includes(today) ? today : week[0] },
     ],
     conversations: [
-      { id: 'c1', name: 'John Smith', company: 'Brightlane Media', channel: 'Email', unread: true, important: true, intent: 'Pricing request', sentiment: 'Positive',
+      { id: 'c1', name: 'John Smith', company: 'Brightlane Media', channel: 'Email', leadId: 'l1', address: 'john@brightlane.example', unread: true, important: true, intent: 'Pricing request', sentiment: 'Positive',
         suggestion: 'Thanks John — happy to share pricing. Would a 20-minute call on Thursday work to match a plan to your team size?',
         msgs: [{ me: false, text: 'Hello! Can you share your pricing?', at: at(0, 9, 2) }], notes: ['Asked about team plan last month.'] },
-      { id: 'c2', name: 'Sarah Johnson', company: 'Peak Digital', channel: 'Manual import', unread: true, important: false, intent: 'Information request', sentiment: 'Neutral',
+      { id: 'c2', name: 'Sarah Johnson', company: 'Peak Digital', channel: 'Manual import', leadId: 'l2', unread: true, important: false, intent: 'Information request', sentiment: 'Neutral',
         suggestion: 'Hi Sarah — here is a short overview of how we work with agencies. Which service matters most to you right now?',
         msgs: [{ me: true, text: 'Hi Sarah, thanks for connecting.', at: at(-3, 15, 0) }, { me: false, text: 'Please share details about your services.', at: at(0, 8, 47) }], notes: [] },
-      { id: 'c3', name: 'David Miller', company: 'Orbit Labs', channel: 'WhatsApp', unread: false, important: false, intent: 'Meeting', sentiment: 'Positive',
+      { id: 'c3', name: 'David Miller', company: 'Orbit Labs', channel: 'WhatsApp', leadId: 'l3', address: '+1 416 555 0134', unread: false, important: false, intent: 'Meeting', sentiment: 'Positive',
         suggestion: 'Great — I have Wednesday 3pm or Thursday 11am open. Which suits you?',
         msgs: [{ me: false, text: 'Let’s schedule a call.', at: at(-1, 16, 30) }], notes: [] },
     ],
@@ -158,19 +161,19 @@ function sampleWorkspace(now: Date): WorkspaceSnapshot {
     ],
     workflows: [
       { id: 'w1', name: 'Score and draft for new leads', on: true, steps: [
-        { type: 'Trigger', label: 'Lead created' }, { type: 'Condition', label: 'Lead score greater than 70' }, { type: 'Action', label: 'Create AI message draft' },
-        { type: 'Approval', label: 'Request user approval' }, { type: 'Update', label: 'Change lead status to Contacted' }] },
+        makeStep('lead.created'), makeStep('if.lead_score', { op: 'gte', value: '70' }), makeStep('message.draft'),
+        makeStep('approval', { note: 'Review the drafted message' }), makeStep('lead.set_stage', { stage: 'contacted' })] },
       { id: 'w2', name: 'Follow-up reminder', on: true, steps: [
-        { type: 'Trigger', label: 'Reply received' }, { type: 'Delay', label: 'Wait 24 hours' }, { type: 'Notification', label: 'Notify assigned user' }] },
+        makeStep('message.received'), makeStep('wait', { amount: '24', unit: 'hours' }), makeStep('notify', { text: 'Follow up with {{lead.name}}' })] },
       { id: 'w3', name: 'Weekly content review', on: false, steps: [
-        { type: 'Trigger', label: 'Every Monday 09:00' }, { type: 'Notification', label: 'Notify workspace of drafts in review' }] },
+        makeStep('schedule', { every: 'week', weekday: '1', time: '09:00' }), makeStep('notify', { text: 'Review the drafts waiting for approval' })] },
     ],
     runs: [],
     integrations: catalog((id) => ['oa', 'ge', 'hs', 'wa'].includes(id)),
     tasks: [
-      { id: 't1', text: 'Follow up with Sarah Johnson', due: 'Today', done: false },
-      { id: 't2', text: 'Publish “3 outreach mistakes” manually', due: 'Tue', done: false },
-      { id: 't3', text: 'Review AI drafts awaiting approval', due: 'Wed', done: false },
+      { id: 't1', text: 'Follow up with Sarah Johnson', due: '', dueDate: today, leadId: 'l2', done: false },
+      { id: 't2', text: 'Publish “3 outreach mistakes” manually', due: '', dueDate: addDays(today, 1), done: false },
+      { id: 't3', text: 'Review AI drafts awaiting approval', due: '', dueDate: addDays(today, 2), done: false },
     ],
     activity: [
       { text: 'Workflow “Score new leads” ran 12 times', at: at(0, 9, 12) },
@@ -273,30 +276,159 @@ export function createDemoBackend(now: () => Date = () => new Date(), sample = s
     return { ok: true, license, entitlementToken: '' };
   };
 
-  // Keeps the demo's copy of the workspace in step with the client's optimistic writes.
+  // Keeps this copy of the workspace in step with the client's optimistic writes.
   const collections: Record<string, keyof WorkspaceSnapshot> = {
     post: 'posts', prompt: 'prompts', activity: 'activity', conversation: 'conversations', workflow: 'workflows',
-    run: 'runs', task: 'tasks', integration: 'integrations', session: 'sessions',
+    task: 'tasks', integration: 'integrations', session: 'sessions', lead: 'leads', campaign: 'campaigns',
   };
   const singletons: Record<string, keyof WorkspaceSnapshot> = {
     profile: 'profile', icp: 'icp', routing: 'routing', openrouter: 'openRouter', sync: 'sync',
   };
-  const apply = (c: Change) => {
-    if (seen.has(c.id)) return;
+
+  const firstMessage = (l: Lead) =>
+    `Hi ${l.name.split(' ')[0]} — I saw ${l.company} is growing${l.industry ? ` in ${l.industry.toLowerCase()}` : ''}. We help teams like yours turn outreach into booked conversations. Open to a quick exchange of notes?`;
+  const put = <T extends { id: string }>(list: T[], item: T, front = true) => {
+    const i = list.findIndex((x) => x.id === item.id);
+    if (i >= 0) list[i] = item; else if (front) list.unshift(item); else list.push(item);
+  };
+  const NOT_SENT = 'This build runs without a server, so the reply was kept here and not sent.';
+  const addReply = (conversationId: string, text: string, id: string, at: string): { ok: boolean; note: string } => {
+    const c = ws.conversations.find((x) => x.id === conversationId);
+    if (!c) return { ok: false, note: 'That conversation does not exist.' };
+    c.msgs = [...c.msgs.filter((m) => m.id !== id), { id, me: true, text, at, status: 'saved', error: NOT_SENT }];
+    c.unread = false;
+    return { ok: false, note: NOT_SENT };
+  };
+
+  // The workflow engine, over this device's copy of the workspace.
+  const host: WorkflowHost = {
+    now,
+    newId: () => crypto.randomUUID(),
+    icp: async () => ws.icp,
+    lead: async (id) => structuredClone(ws.leads.find((l) => l.id === id) ?? null),
+    saveLead: async (lead) => { put(ws.leads, lead, false); },
+    conversation: async (id) => structuredClone(ws.conversations.find((c) => c.id === id) ?? null),
+    conversationForLead: async (id) => structuredClone(ws.conversations.find((c) => c.leadId === id) ?? null),
+    saveConversation: async (c) => { put(ws.conversations, c, false); },
+    post: async (id) => ws.posts.find((p) => p.id === id) ?? null,
+    addTask: async (t: Task) => { ws.tasks.unshift(t); },
+    notify: async (text) => { ws.activity = [{ text, at: now().toISOString() }, ...ws.activity].slice(0, 6); },
+    draft: async (lead) => firstMessage(lead),
+    send: async (c, text) => addReply(c.id, text, crypto.randomUUID(), now().toISOString()),
+    webhook: async () => ({ ok: false, note: 'Webhooks need a Nexora AI server; this build runs without one.' }),
+  };
+  const dispatcher: Dispatcher = {
+    host,
+    workflows: async () => ws.workflows,
+    mayRun: async () => ws.runs.filter((r) => !r.test && Date.parse(r.at) >= now().getTime() - 86_400_000).length < ws.automationDailyRunLimit,
+    saveRun: async (run) => { put(ws.runs, run as Run); ws.runs.splice(50); },
+  };
+
+  /** Applies one write. Returns the events it caused and anything still to do once it is stored. */
+  const apply = (c: Change): { events: WfEvent[]; then?: () => Promise<unknown> } => {
+    const none = { events: [] as WfEvent[] };
+    if (seen.has(c.id)) return none;
     seen.add(c.id);
+    const events: WfEvent[] = [];
+    if (c.entity === 'message' && c.op === 'upsert') {
+      const m = c.data as { id: string; conversationId: string; text: string; at?: string };
+      addReply(m.conversationId, m.text, m.id, m.at ?? now().toISOString());
+      return none;
+    }
+    if (c.entity === 'run' && c.op === 'upsert') {
+      const r = c.data as Run;
+      const existing = ws.runs.find((x) => x.id === r.id);
+      if (!existing) {
+        return { events, then: async () => {
+          const wf = ws.workflows.find((f) => f.id === r.workflowId);
+          if (!wf) throw new Error('That workflow does not exist.');
+          const problem = workflowProblem(wf.steps);
+          if (problem) throw new Error(problem);
+          if (!r.test && !(await dispatcher.mayRun())) throw new Error(`The daily limit of ${ws.automationDailyRunLimit} runs has been reached.`);
+          const lead = ws.leads.find((l) => l.id === r.subject?.leadId);
+          const out = await advance(newRun(r.id, wf, lead ? { leadId: lead.id, label: lead.name } : {}, now(), { test: r.test }), wf, host);
+          await dispatcher.saveRun(out.run);
+          await dispatch(out.events, dispatcher);
+        } };
+      }
+      if (existing.status !== 'Awaiting approval' || (r.status !== 'Completed' && r.status !== 'Rejected')) return none;
+      if (r.status === 'Rejected') { existing.status = 'Rejected'; return none; }
+      existing.status = 'Waiting';
+      existing.log = [...(existing.log ?? []), { step: existing.cursor ?? 1, text: 'Approved', ok: true, at: now().toISOString() }];
+      return { events, then: () => resume(existing, dispatcher) };
+    }
     const coll = collections[c.entity];
     if (coll) {
       const list = ws[coll] as unknown as { id: string }[];
       const i = list.findIndex((x) => x.id === c.entityId);
-      if (c.op === 'delete') { if (i >= 0) list.splice(i, 1); }
-      else if (i >= 0) list[i] = c.data as { id: string };
+      if (c.op === 'delete') {
+        if (i >= 0) list.splice(i, 1);
+        if (coll === 'workflows') ws.runs = ws.runs.filter((r) => r.workflowId !== c.entityId);
+        if (coll === 'campaigns') for (const l of ws.leads) if (l.campaignId === c.entityId) l.campaignId = null;
+        return none;
+      }
+      if (coll === 'leads') {
+        const l = c.data as Lead;
+        const before = list[i] as Lead | undefined;
+        if (!before) events.push({ kind: 'lead.created', leadId: l.id, label: l.name });
+        else if (before.stage !== l.stage) events.push({ kind: 'lead.stage_changed', leadId: l.id, to: l.stage, label: l.name });
+        if (before) l.createdAt = before.createdAt;
+      }
+      if (coll === 'posts') {
+        const p = c.data as Post;
+        const before = list[i] as Post | undefined;
+        if (before && before.status !== p.status) events.push({ kind: 'post.status_changed', postId: p.id, to: p.status, label: p.title });
+      }
+      if (coll === 'conversations' && i >= 0) {
+        // The engine may have added to this conversation since the client last loaded it: keep those messages.
+        const v = c.data as Conversation;
+        const have = (list[i] as Conversation).msgs;
+        const same = (x: Message, y: Message) => (x.id && y.id ? x.id === y.id : x.me === y.me && x.at === y.at && x.text === y.text);
+        v.msgs = [...have, ...v.msgs.filter((m) => !have.some((x) => same(x, m)))].map(({ queued: _queued, ...m }) => m);
+      }
+      if (i >= 0) list[i] = c.data as { id: string };
+      else if (coll === 'leads' || coll === 'campaigns') list.push(c.data as { id: string });
       else list.unshift(c.data as { id: string });
       if (coll === 'activity') list.splice(6); // the dashboard shows the latest six
-      return;
+      return { events };
     }
     const single = singletons[c.entity];
     if (single && c.op === 'upsert') (ws as unknown as Record<string, unknown>)[single] = c.data;
     if (c.entity === 'security' && c.op === 'upsert') ws.mfa = (c.data as { mfa: boolean }).mfa;
+    if (c.entity === 'publishing' && c.op === 'upsert') ws.autoPublish = (c.data as { auto: boolean }).auto;
+    return none;
+  };
+
+  /** Continues waiting runs and fires schedules. Runs while the app is open, since there is no server to do it. */
+  const tick = async () => {
+    const t = now();
+    let changed = false;
+    for (const r of ws.runs.filter((x) => x.status === 'Waiting' && x.resumeAt && Date.parse(x.resumeAt) <= t.getTime())) {
+      r.resumeAt = null;
+      await resume(r, dispatcher);
+      changed = true;
+    }
+    let days: Record<string, string> = {};
+    try { days = JSON.parse(localStorage.getItem(LS_SCHEDULES) ?? '{}') as Record<string, string>; } catch { /* storage unavailable */ }
+    for (const wf of ws.workflows) {
+      const due = scheduleDue(wf, t, days[wf.id] ?? null);
+      if (!due || workflowProblem(wf.steps)) continue;
+      days[wf.id] = due;
+      const each = wf.steps[0].config?.each;
+      const subjects = each ? ws.leads.filter((l) => l.stage === each).slice(0, 200).map((l) => ({ leadId: l.id, label: l.name })) : [{}];
+      for (const subject of subjects) {
+        if (!(await dispatcher.mayRun())) break;
+        const out = await advance(newRun(crypto.randomUUID(), wf, subject, t), wf, host);
+        await dispatcher.saveRun(out.run);
+        await dispatch(out.events, dispatcher);
+      }
+      changed = true;
+    }
+    if (changed) {
+      store();
+      if (!sample) try { localStorage.setItem(LS_SCHEDULES, JSON.stringify(days)); } catch { /* storage unavailable */ }
+    }
+    return changed;
   };
 
   const reply = (q: string): string => {
@@ -341,14 +473,31 @@ export function createDemoBackend(now: () => Date = () => new Date(), sample = s
       },
     },
     workspace: {
-      async load() { return structuredClone(ws); },
       async metrics(range) {
         if (!sample) return workspaceMetrics(ws, range, now());
         const r = METRICS[range];
         const f = [64, 41, 17, 6].map((v) => Math.round(v * r.m)) as [number, number, number, number];
         return { bars: r.values.map((value, i) => ({ label: r.labels[i], value })), funnel: f };
       },
-      async push(changes) { await wait(150); changes.forEach(apply); store(); },
+      async load() {
+        await tick();
+        return structuredClone(ws);
+      },
+      async push(changes) {
+        await wait(150);
+        let effects = false;
+        try {
+          for (const c of changes) {
+            const { events, then } = apply(c);
+            if (then) { await then(); effects = true; }
+            if (c.entity === 'message') effects = true;
+            if ((await dispatch(events, dispatcher)).length) effects = true;
+          }
+        } finally {
+          store();
+        }
+        return { effects };
+      },
     },
     ai: {
       async chat(history) { await wait(700); return { text: reply(history[history.length - 1]?.text ?? '') }; },
@@ -362,26 +511,20 @@ export function createDemoBackend(now: () => Date = () => new Date(), sample = s
         await wait(400);
         const l = ws.leads.find((x) => x.id === leadId);
         if (!l) throw new Error('Lead not found.');
-        return { text: `Hi ${l.name.split(' ')[0]} — I saw ${l.company} is growing${l.industry ? ` in ${l.industry.toLowerCase()}` : ''}. We help teams like yours turn outreach into booked conversations. Open to a quick exchange of notes?` };
+        return { text: firstMessage(l) };
       },
     },
     leads: {
       async importCsv(csv) {
         await wait(300);
-        const [header, ...rows] = csv.split(/\r?\n/).filter((l) => l.trim()).map((l) => l.split(',').map((c) => c.trim().replace(/^"|"$/g, '')));
-        const col = (n: string) => (header ?? []).findIndex((h) => h.toLowerCase() === n);
-        const [n, c] = [col('name'), col('company')];
-        if (n < 0 || c < 0) throw new Error('The CSV needs a header row with at least "name" and "company" columns.');
-        const cell = (r: string[], i: number) => (i >= 0 && r[i] ? r[i] : null);
-        let imported = 0;
-        for (const r of rows) {
-          if (!r[n] || !r[c]) continue;
-          const size = Number(cell(r, col('size')));
-          ws.leads.push({ id: crypto.randomUUID(), name: r[n], company: r[c], title: cell(r, col('title')), industry: cell(r, col('industry')), size: Number.isInteger(size) && size > 0 ? size : null, country: cell(r, col('country')) });
-          imported++;
+        let parsed: ReturnType<typeof leadsFromCsv>;
+        try { parsed = leadsFromCsv(csv, now().toISOString(), () => crypto.randomUUID()); } catch (e) {
+          throw e instanceof CsvError ? new Error(e.message) : e;
         }
+        ws.leads.push(...parsed.leads);
+        await dispatch(parsed.leads.map((l) => ({ kind: 'lead.created' as const, leadId: l.id, label: l.name })), dispatcher);
         store();
-        return { imported, skipped: rows.length - imported, leads: structuredClone(ws.leads) };
+        return { imported: parsed.leads.length, skipped: parsed.skipped, leads: structuredClone(ws.leads) };
       },
     },
     integrations: {
@@ -402,6 +545,24 @@ export function createDemoBackend(now: () => Date = () => new Date(), sample = s
         const g = ws.integrations.find((x) => x.id === id);
         if (g) g.connected = false;
         store();
+      },
+      async sync() {
+        if (!sample) throw new Error(NO_SERVER);
+        await wait(600);
+        return { ok: true, note: 'Everything is up to date' };
+      },
+    },
+    posts: {
+      async publish(id) {
+        if (!sample) throw new Error(NO_SERVER);
+        await wait(600);
+        const p = ws.posts.find((x) => x.id === id);
+        if (!p) throw new Error('That post does not exist.');
+        if (p.status !== 'Approved' && p.status !== 'Scheduled') throw new Error('Approve the post before publishing it.');
+        p.status = 'Published';
+        p.date = p.date ?? toIsoDate(now());
+        p.publishedUrl = 'https://www.linkedin.com/feed/';
+        return { url: p.publishedUrl };
       },
     },
     providers: {

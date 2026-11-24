@@ -2,6 +2,8 @@
 // Never run automatically: `npm run cli -- license:create --demo` opts in.
 
 import { randomUUID } from 'node:crypto';
+import type { Step } from '../../src/lib/types.ts';
+import { makeStep } from '../../src/lib/workflow.ts';
 import type { Q } from './db.ts';
 
 export async function seedDemo(q: Q, w: string, now: Date): Promise<void> {
@@ -55,14 +57,16 @@ export async function seedDemo(q: Q, w: string, now: Date): Promise<void> {
   const replies = [['Pricing overview', 'Thanks for asking — our plans start at $9 per month. I can send a one-page comparison if helpful.'], ['Book a call', 'Happy to walk you through it. Here are two slots: Wednesday 3pm or Thursday 11am.'], ['Send details', 'Sharing a short overview of our services below. Tell me which part is most relevant.']];
   for (const [i, [title, text]] of replies.entries()) await q.query('INSERT INTO saved_replies (workspace_id, title, text, position) VALUES ($1,$2,$3,$4)', [w, title, text, i]);
 
-  const workflows: [string, boolean, [string, string][]][] = [
-    ['Score and draft for new leads', true, [['Trigger', 'Lead created'], ['Condition', 'Lead score greater than 70'], ['Action', 'Create AI message draft'], ['Approval', 'Request user approval'], ['Update', 'Change lead status to Contacted']]],
-    ['Follow-up reminder', true, [['Trigger', 'Reply received'], ['Delay', 'Wait 24 hours'], ['Notification', 'Notify assigned user']]],
-    ['Weekly content review', false, [['Trigger', 'Every Monday 09:00'], ['Notification', 'Notify workspace of drafts in review']]],
+  const workflows: [string, boolean, Step[]][] = [
+    ['Score and draft for new leads', true, [
+      makeStep('lead.created'), makeStep('if.lead_score', { op: 'gte', value: '70' }), makeStep('message.draft'), makeStep('approval', { note: 'Review the drafted message' }),
+      makeStep('lead.set_stage', { stage: 'contacted' })]],
+    ['Follow-up reminder', true, [makeStep('message.received'), makeStep('wait', { amount: '24', unit: 'hours' }), makeStep('notify', { text: 'Follow up with {{lead.name}}' })]],
+    ['Weekly content review', false, [makeStep('schedule', { every: 'week', weekday: '1', time: '09:00' }), makeStep('notify', { text: 'Review the drafts waiting for approval' })]],
   ];
   for (const [i, [name, enabled, steps]] of workflows.entries()) {
     await q.query('INSERT INTO workflows (id, workspace_id, name, enabled, steps, created_at) VALUES ($1,$2,$3,$4,$5,$6)',
-      [randomUUID(), w, name, enabled, JSON.stringify(steps.map(([type, label]) => ({ type, label }))), at(-8, 9, i)]);
+      [randomUUID(), w, name, enabled, JSON.stringify(steps), at(-8, 9, i)]);
   }
 
   const tasks = [['Follow up with Sarah Johnson', 'Today'], ['Publish “3 outreach mistakes” manually', 'Tue'], ['Review AI drafts awaiting approval', 'Wed']];

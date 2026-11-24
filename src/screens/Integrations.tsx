@@ -1,9 +1,12 @@
 import { useRef, useState } from 'react';
 import { Button, Card, Seg } from '../components/ui';
+import { relTime } from '../lib/dates';
 import type { Integration } from '../lib/types';
 import { useApp, useWs } from '../state/store';
 
 const CATS = ['All', 'AI', 'CRM', 'Automation', 'Communication', 'Developer', 'Social'].map((c) => [c, c] as const);
+/** Connections that exchange data on their own every few minutes, and on request. */
+const SYNCABLE = ['hs', 'sf', 'gc', 'em'];
 const errText = (e: unknown) => (e instanceof Error ? e.message : 'unknown error');
 
 export function Integrations() {
@@ -11,6 +14,7 @@ export function Integrations() {
   const s = useApp();
   const [cat, setCat] = useState('All');
   const [testing, setTesting] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState<string | null>(null);
 
   const fileInput = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
@@ -21,10 +25,9 @@ export function Integrations() {
     try {
       const r = await s.backend!.leads.importCsv(await file.text());
       s.update(() => ({ leads: r.leads }));
-      s.set({ metrics: {} });
-      void s.setRange(s.range);
       const skipped = r.skipped ? ` · ${r.skipped} skipped (no name or company)` : '';
       s.commit(`${r.imported} lead${r.imported === 1 ? '' : 's'} imported from CSV${skipped}`);
+      void s.refresh(); // an import can start workflows
     } catch (e) {
       s.notify(`Import failed: ${errText(e)}`);
     } finally {
@@ -49,6 +52,20 @@ export function Integrations() {
     }
   };
 
+  const sync = async (g: Integration) => {
+    if (s.needsNet('Syncing')) return;
+    setSyncing(g.id);
+    try {
+      const r = await s.backend!.integrations.sync(g.id);
+      s.notify(`${g.name}: ${r.note}`);
+      await s.refresh();
+    } catch (e) {
+      s.notify(`${g.name} sync failed: ${errText(e)}`);
+    } finally {
+      setSyncing(null);
+    }
+  };
+
   const canConnect = s.backend!.canConnect;
   const connect = (g: Integration) => {
     if (s.needsNet('Connecting')) return;
@@ -56,16 +73,27 @@ export function Integrations() {
       title: `Connect ${g.name}`,
       body: g.oauth
         ? `You will authorize on ${g.name}’s own sign-in page. Nexora AI never sees your password and requests approved scopes only.`
-        : 'Paste a key. It is encrypted before storage and scoped to this workspace.',
-      confirm: g.oauth ? 'Authorize' : 'Test and connect',
-      field: g.oauth ? undefined : 'API key',
-      run: async (key) => {
+        : g.hook
+          ? 'Connecting creates a private address for this workspace. Any system that posts a message to it adds that message to your inbox. Connecting again replaces the address.'
+          : g.fields
+            ? 'These details are checked with the service, then encrypted before storage. They are scoped to this workspace and never shown again.'
+            : 'Paste a key. It is encrypted before storage and scoped to this workspace.',
+      confirm: g.oauth ? 'Authorize' : g.hook ? 'Create address' : 'Test and connect',
+      field: g.oauth || g.hook || g.fields ? undefined : 'API key',
+      fields: g.fields,
+      run: async (key, values) => {
         try {
-          const { redirectUrl } = await s.backend!.integrations.connect(g.id, key || undefined);
+          const { redirectUrl, details } = await s.backend!.integrations.connect(g.id, g.fields ? values : key || undefined);
           // OAuth: the provider's own page takes over; the server marks it connected on callback.
           if (redirectUrl) return void window.location.assign(redirectUrl);
           mark(g.id, true);
           s.commit(`${g.name} connected`);
+          if (details?.length) {
+            s.confirm({
+              title: `${g.name} connected`, confirm: 'Done', details, run: () => {},
+              body: 'Copy these into the other system now. For your security they are shown only once; connect again to get new ones.',
+            });
+          }
         } catch (e) {
           s.notify(`Could not connect ${g.name}: ${errText(e)}`);
         }
@@ -100,7 +128,7 @@ export function Integrations() {
             <h5>Manual, user-controlled</h5>
             <div className="hint13">CSV lead import · message drafts · connection, publishing and follow-up reminders</div>
             <input ref={fileInput} type="file" accept=".csv,text/csv" hidden onChange={(e) => void importLeads(e.target.files?.[0])} />
-            <Button disabled={importing} onClick={() => fileInput.current?.click()} style={{ marginTop: 8 }} title="Header row: name, company, title, industry, size, country">
+            <Button disabled={importing} onClick={() => fileInput.current?.click()} style={{ marginTop: 8 }} title="Header row: name, company, then any of title, industry, size, country, email, phone, linkedin, tags, stage">
               {importing ? 'Importing…' : 'Import leads from CSV'}
             </Button>
           </div>
@@ -125,10 +153,12 @@ export function Integrations() {
             </div>
             <div className="card-title">{g.name}</div>
             <p className="card-body">{g.desc}</p>
+            {g.connected && g.sync && <div className="note" style={{ color: g.sync.ok ? undefined : 'var(--color-error, #b3261e)' }}>{g.sync.note} · {relTime(g.sync.at)}</div>}
             <div className="row wrap" style={{ gap: 6 }}>
               {g.connected ? (
                 <>
-                  <Button disabled={testing === g.id} onClick={() => void test(g)}>{testing === g.id ? 'Testing…' : 'Test connection'}</Button>
+                  {!g.hook && <Button disabled={testing === g.id} onClick={() => void test(g)}>{testing === g.id ? 'Testing…' : 'Test connection'}</Button>}
+                  {SYNCABLE.includes(g.id) && <Button disabled={syncing === g.id} onClick={() => void sync(g)}>{syncing === g.id ? 'Syncing…' : 'Sync now'}</Button>}
                   <Button variant="ghost" onClick={() => disconnect(g)}>Disconnect</Button>
                 </>
               ) : (

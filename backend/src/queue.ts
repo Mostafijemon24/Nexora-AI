@@ -3,6 +3,8 @@
 
 import { Queue, Worker } from 'bullmq';
 import { Redis } from 'ioredis';
+import { runBackground } from './background.ts';
+import type { Ctx } from './context.ts';
 import type { Db } from './db.ts';
 import type { Mail, Mailer } from './mail.ts';
 
@@ -26,12 +28,15 @@ export async function maintenance(db: Db, now: Date): Promise<void> {
   await db.query('DELETE FROM applied_changes WHERE applied_at < $1', [new Date(now.getTime() - 90 * 86_400_000)]);
 }
 
-export async function startWorker(db: Db, mailer: Mailer, redis: Redis): Promise<Worker> {
+/** `ctx` is needed for the once-a-minute background pass; without it the worker only delivers mail and does housekeeping. */
+export async function startWorker(db: Db, mailer: Mailer, redis: Redis, ctx?: Ctx): Promise<Worker> {
   const queue = new Queue(QUEUE, { connection: redis });
   await queue.upsertJobScheduler('maintenance', { every: 3_600_000 }, { name: 'maintenance' });
+  if (ctx) await queue.upsertJobScheduler('background', { every: 60_000 }, { name: 'background', opts: { removeOnComplete: true, removeOnFail: 50 } });
   await queue.close();
   return new Worker(QUEUE, async (job) => {
     if (job.name === 'email') await mailer.send(job.data as Mail);
     else if (job.name === 'maintenance') await maintenance(db, new Date());
+    else if (job.name === 'background' && ctx) await runBackground(ctx);
   }, { connection: redis, concurrency: 5 });
 }
