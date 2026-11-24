@@ -87,8 +87,12 @@ echo "API address:               https://$API_DOMAIN"
 echo "NEXORA_LICENSE_PUBLIC_KEY: $(compose exec -T api node src/cli.ts pubkey </dev/null)"
 if [ -z "${COMPOSE_PROFILES:-}" ]; then
   echo
-  echo "Ports 80/443 are used by another web server, so no HTTPS proxy was started."
-  echo "Forward https://$API_DOMAIN to http://127.0.0.1:${API_PORT:-8787} in that web server (deploy/README.md)."
+  if curl -fsS -m 10 "https://$API_DOMAIN/healthz" >/dev/null 2>&1; then
+    echo "https://$API_DOMAIN answers through this server's own web server: nothing more to set up."
+  else
+    echo "Ports 80/443 are used by another web server, so no HTTPS proxy was started."
+    echo "Forward https://$API_DOMAIN to http://127.0.0.1:${API_PORT:-8787} in that web server (deploy/README.md)."
+  fi
 fi
 if [ "$FIRST_RUN" = 1 ]; then
   echo
