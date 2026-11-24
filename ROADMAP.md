@@ -23,6 +23,8 @@ Each item says what is missing today and what is needed before it can be built.
   *Today:* without mail settings the code is written to the server log.
   *Needed:* an SMTP account.
 - [ ] **Code signing** for the Windows and macOS installers, so they open without a warning.
+  *Today:* the macOS app is ad-hoc signed, so it opens after *Open Anyway*; the release workflow
+  signs and notarizes it as soon as the Apple secrets listed in `release.yml` are added.
   *Needed:* a Windows code-signing certificate and an Apple Developer account.
 
 ## 2. Product features not built yet

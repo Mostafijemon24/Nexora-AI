@@ -174,6 +174,16 @@ CRM, ক্যালেন্ডার ও মেসেজিং চ্যান
 `NXR-VALID-0001` key ব্যবহার করুন। এগুলো এখনো code-sign করা নয়, তাই Windows ও macOS প্রথমবার খোলার
 সময় সতর্কবার্তা দেখাবে।
 
+**macOS-এ প্রথমবার খোলার সময়।** macOS যদি বলে অ্যাপটি যাচাই করা যায়নি, তাহলে **System Settings →
+Privacy & Security**-এ গিয়ে **Open Anyway** চাপুন। আর যদি বলে *"Nexora AI.app" is damaged and can't
+be opened*, তাহলে অ্যাপটি আসলে নষ্ট নয় — সাইন না করা ডাউনলোড macOS এভাবেই আটকায়। **Cancel** চাপুন
+(*Move to Trash* নয়), অ্যাপটি **Applications**-এ সরান, তারপর Terminal-এ একবার এই কমান্ডটি চালিয়ে
+অ্যাপটি আবার খুলুন:
+
+```bash
+xattr -cr "/Applications/Nexora AI.app"
+```
+
 ## প্রোটোটাইপ চালিয়ে দেখুন
 
 - **এই repository থেকে, ব্রাউজারে:** `npm install && npm run dev`, তারপর `http://localhost:1420` খুলে

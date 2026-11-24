@@ -203,6 +203,15 @@ The current installers are a **preview that runs on built-in sample data**, so y
 every screen. Use the key `NXR-VALID-0001` to get in. They are not code-signed yet, so Windows and
 macOS will show a warning the first time you open them.
 
+**macOS, first launch.** If macOS says the app cannot be verified, open **System Settings → Privacy
+& Security** and click **Open Anyway**. If it says *"Nexora AI.app" is damaged and can't be opened*,
+the app is not damaged — macOS blocks unsigned downloads this way. Click **Cancel** (not *Move to
+Trash*), move the app to **Applications**, then run this once in Terminal and open the app again:
+
+```bash
+xattr -cr "/Applications/Nexora AI.app"
+```
+
 ## Try the prototype
 
 - **In your browser, from this repository:** `npm install && npm run dev`, open

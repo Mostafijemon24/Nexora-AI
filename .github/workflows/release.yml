@@ -7,7 +7,17 @@ name: Release installers
 #   VITE_API_URL               public URL of the backend, e.g. https://api.example.com
 #   NEXORA_LICENSE_PUBLIC_KEY  printed by `npm run cli -- keygen` in backend/
 # Without VITE_API_URL the installers run on built-in demo data and cannot activate real licenses.
-# The installers are unsigned: Windows and macOS will warn on first launch until code signing is set up.
+#
+# macOS signing. With no secrets the app gets an ad-hoc signature (signingIdentity "-" in
+# src-tauri/tauri.conf.json). Without it, Apple Silicon Macs refuse a downloaded copy with
+# "is damaged and can't be opened"; with it they show the ordinary "unverified developer" warning,
+# which the user can pass in System Settings → Privacy & Security → Open Anyway.
+# To remove the warning completely, add these repository secrets (needs an Apple Developer account):
+#   APPLE_CERTIFICATE           base64 of the "Developer ID Application" certificate exported as .p12
+#   APPLE_CERTIFICATE_PASSWORD  password of that .p12
+#   APPLE_SIGNING_IDENTITY      e.g. "Developer ID Application: Your Name (TEAMID)"
+#   APPLE_ID, APPLE_PASSWORD, APPLE_TEAM_ID   Apple ID, an app-specific password, and the team ID (notarization)
+# The Windows installers are unsigned: Windows warns on first launch until a certificate is set up.
 
 on:
   workflow_dispatch:
@@ -42,6 +52,24 @@ jobs:
           targets: ${{ startsWith(matrix.os, 'macos') && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
       - uses: Swatinem/rust-cache@v2
       - run: npm ci
+      # An empty APPLE_* variable would override the ad-hoc identity and break the build, so only
+      # the secrets that exist are passed on.
+      - name: Apple signing secrets (macOS, optional)
+        if: startsWith(matrix.os, 'macos')
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
+            value="${!name}"
+            if [ -n "$value" ]; then
+              { echo "$name<<NEXORA_ENV_EOF"; printf '%s\n' "$value"; echo "NEXORA_ENV_EOF"; } >> "$GITHUB_ENV"
+            fi
+          done
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -54,3 +82,10 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+      - name: Check the macOS app signature
+        if: startsWith(matrix.os, 'macos')
+        run: |
+          app="$(find . -type d -name 'Nexora AI.app' -path '*/bundle/macos/*' -not -path './node_modules/*' | head -n 1)"
+          test -n "$app" || { echo "Nexora AI.app was not built"; exit 1; }
+          codesign --verify --deep --strict --verbose=2 "$app"
+          codesign --display --verbose=2 "$app" 2>&1 | grep -E '^(Identifier|Signature|Authority|TeamIdentifier)'
