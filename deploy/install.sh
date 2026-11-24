@@ -16,6 +16,9 @@ say() { printf '\n\033[1m%s\033[0m\n' "$*"; }
 die() { printf '\nError: %s\n' "$*" >&2; exit 1; }
 compose() { docker compose --env-file "$ENV_FILE" -f "$DIR/deploy/docker-compose.yml" "$@"; }
 
+# Everything runs inside main, called on the last line: bash then reads the whole script before it
+# starts, so a command that reads standard input cannot swallow the rest of a script piped in from curl.
+main() {
 [ "$(id -u)" = 0 ] || die "run this as root (or with sudo)."
 
 if ! command -v docker >/dev/null 2>&1 || ! docker compose version >/dev/null 2>&1; then
@@ -76,12 +79,12 @@ set -a; . "$ENV_FILE"; set +a
 if [ "$FIRST_RUN" = 1 ]; then
   say "Creating the first license"
   # The owner's own license: the Business plan (team members and several workspaces), five devices, one year.
-  compose exec -T api node src/cli.ts license:create --email "$OWNER_EMAIL" --name "$OWNER_NAME" --workspace "$WORKSPACE" --plan business --max-devices 5 --months 12
+  compose exec -T api node src/cli.ts license:create --email "$OWNER_EMAIL" --name "$OWNER_NAME" --workspace "$WORKSPACE" --plan business --max-devices 5 --months 12 </dev/null
 fi
 
 say "Done"
 echo "API address:               https://$API_DOMAIN"
-echo "NEXORA_LICENSE_PUBLIC_KEY: $(compose exec -T api node src/cli.ts pubkey)"
+echo "NEXORA_LICENSE_PUBLIC_KEY: $(compose exec -T api node src/cli.ts pubkey </dev/null)"
 if [ -z "${COMPOSE_PROFILES:-}" ]; then
   echo
   echo "Ports 80/443 are used by another web server, so no HTTPS proxy was started."
@@ -93,3 +96,6 @@ if [ "$FIRST_RUN" = 1 ]; then
   echo "Next: set the GitHub repository variables VITE_API_URL=https://$API_DOMAIN and"
   echo "NEXORA_LICENSE_PUBLIC_KEY to the value above, then re-run the site and installer workflows."
 fi
+}
+
+main "$@"
