@@ -6,6 +6,7 @@ import { parseArgs } from 'node:util';
 import { publicKeyBase64 } from './crypto.ts';
 import { migrate } from './db.ts';
 import { createLicense, renewLicense, revokeLicense } from './license/service.ts';
+import { smtpMailer } from './mail.ts';
 import { seedDemo } from './seed.ts';
 import { importLeads } from './workspace/leads.ts';
 
@@ -18,6 +19,7 @@ const HELP = `Nexora AI backend
                                       issue a license (the key is shown once); --demo adds sample workspace data
   license:revoke --key K              revoke a license and sign out every device
   license:renew  --key K [--months 1] extend a license
+  mail:test --to ADDRESS              send a test message through SMTP_URL and say whether the mail server took it
   leads:import --workspace ID --file leads.csv
                                       import leads from CSV; header: name,company[,title,industry,size,country,email,phone,linkedin,tags,stage]
 `;
@@ -28,7 +30,7 @@ async function main() {
     args: rest, strict: true,
     options: {
       email: { type: 'string' }, name: { type: 'string' }, workspace: { type: 'string' }, plan: { type: 'string', default: 'professional' },
-      months: { type: 'string', default: '1' }, 'max-devices': { type: 'string', default: '1' }, key: { type: 'string' }, file: { type: 'string' },
+      months: { type: 'string', default: '1' }, 'max-devices': { type: 'string', default: '1' }, key: { type: 'string' }, file: { type: 'string' }, to: { type: 'string' },
       demo: { type: 'boolean', default: false },
     },
   });
@@ -72,6 +74,20 @@ async function main() {
       case 'license:renew': {
         const end = await renewLicense(rt.ctx, need('key'), months);
         console.log(end ? `Renewed until ${end.toISOString().slice(0, 10)}.` : 'No license matches that key.');
+        break;
+      }
+      case 'mail:test': {
+        const to = need('to');
+        if (!rt.config.smtpUrl) throw new Error('SMTP_URL is not set, so no email is sent. Add it to .env and restart the server.');
+        const sent = smtpMailer(rt.config.smtpUrl, rt.config.mailFrom).send({
+          to, subject: 'Nexora AI test message',
+          text: 'This is a test message from your Nexora AI server.\n\nIf you are reading it, the server can send email: codes, password resets and invitations will arrive.',
+        });
+        // A blocked port never answers; without this the command would sit for two minutes.
+        let timer: NodeJS.Timeout | undefined;
+        const late = new Promise<never>((_, no) => { timer = setTimeout(() => no(new Error('The mail server did not answer within 30 seconds. Check the host and port; the port may be blocked from this server.')), 30_000); });
+        try { await Promise.race([sent, late]); } finally { clearTimeout(timer); }
+        console.log(`The mail server accepted a test message for ${to} (sent as ${rt.config.mailFrom}). Check that inbox, and its spam folder.`);
         break;
       }
       case 'leads:import': {

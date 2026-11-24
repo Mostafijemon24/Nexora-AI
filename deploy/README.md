@@ -48,7 +48,7 @@ let the desktop app start offline.
 
 - **Set a password** in Settings → Security. From then on a license key alone no longer opens the
   workspace, and you can invite team members (Business plan) who sign in with their own accounts.
-- **Email** for codes and invitations needs `SMTP_URL` (see Day-to-day below).
+- **Email** for codes and invitations needs a mail account: `bash /opt/nexora/deploy/set-mail.sh` (see Day-to-day below).
 - **Connections a user makes in the app** — Email (their own mailbox), WhatsApp, n8n, webhooks —
   need nothing on the server.
 - **Sign-in connections** — LinkedIn, HubSpot, Salesforce, Google Calendar — each need a developer
@@ -141,6 +141,18 @@ nexora exec api node src/cli.ts help       # license commands: create, renew, re
 nexora exec postgres pg_dump -U nexora nexora > backup.sql   # database backup
 ```
 
-Email (license-transfer codes, invitations, password resets) needs `SMTP_URL` and `MAIL_FROM` in
-`deploy/.env`; without them those messages are written to the API log. After editing `.env`, run
-`nexora up -d`.
+### Email
+
+License-transfer codes, invitations and password resets are emailed once the server has a mail
+account; until then they are written to the API log. Set it up with:
+
+```bash
+bash /opt/nexora/deploy/set-mail.sh
+```
+
+It asks for the SMTP server, port, username and password of a mailbox you own (the password is
+not shown), writes `SMTP_URL` and `MAIL_FROM` to `deploy/.env`, restarts the server and sends a
+test message. Run it again to change the account. To test the current settings at any time:
+`nexora exec api node src/cli.ts mail:test --to you@example.com`.
+
+After editing `deploy/.env` by hand, run `nexora up -d`.

@@ -102,7 +102,8 @@ the live service, because that needs the owner's accounts:
 1. **Server**: done. Open https://linkdin.avonixai.com, activate with the license key the
    installer printed, then set your name and email (Settings → My profile) and a password
    (Settings → Security).
-2. **Email**: put `SMTP_URL` and `MAIL_FROM` in `/opt/nexora/deploy/.env`, then run the installer again.
+2. **Email**: on the server run `bash /opt/nexora/deploy/set-mail.sh` and answer its questions
+   with the SMTP details of a mailbox you own. It saves them, restarts the server and sends a test message.
 3. **Automatic updates**: on your own computer run
    `npm run tauri signer generate -- -w ~/.tauri/nexora-updater.key`; add the `.pub` contents as
    the repository variable `TAURI_UPDATER_PUBKEY` and the key as the secret

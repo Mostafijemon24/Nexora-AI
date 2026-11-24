@@ -15,8 +15,8 @@ decision that only the owner has.
   the real name and email under Settings → My profile (the install used placeholder values), and
   set a password under Settings → Security.
 - [ ] **Email delivery** for transfer codes, password resets and invitations.
-  *Needed:* `SMTP_URL` in the server's `.env`. Without it these messages are written to the server
-  log instead of being sent.
+  *Needed:* a mail account, set with `bash /opt/nexora/deploy/set-mail.sh` on the server. Without
+  it these messages are written to the server log instead of being sent.
 - [ ] **AI provider keys** — OpenAI, Google Gemini, Anthropic Claude, OpenRouter. *Postponed by the owner.*
   The connections are written and tested against scripted responses only; each needs one real key to confirm.
 - [ ] **LinkedIn developer app.** *Postponed by the owner.* Sign-in and publishing are written; LinkedIn
