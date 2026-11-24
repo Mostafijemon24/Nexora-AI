@@ -1,12 +1,16 @@
-// In-memory development backend. It exists so the UI can be run and reviewed without the
-// Nexora AI API; it is selected only when VITE_API_URL is unset and is never a substitute
-// for server-side license enforcement. Data and responses mirror the design prototype.
+// Local backend, selected only when VITE_API_URL is unset, so the app runs without the Nexora AI
+// API. The workspace starts empty and is kept in this device's storage between launches. AI
+// answers, key checks and connection tests are simulated here, and it is never a substitute for
+// server-side license enforcement. Adding `?sample` to the address loads the design prototype's
+// sample data instead (never stored), for previews and screenshots.
 
 import type { Backend, LicenseStatus } from './backend';
 import { addDays, shortDate, toIsoDate, weekOf, fullDate } from '../lib/dates';
 import { rankLeads } from '../lib/scoring';
+import { PROVIDER_NAMES } from '../lib/types';
 import type {
-  ActivationResult, Change, DeviceInfo, GeneratedPost, LicenseEvent, LicenseState, OpenRouterModel, Range, Tone, WorkspaceSnapshot,
+  ActivationResult, Change, DashboardMetrics, DeviceInfo, GeneratedPost, Integration, LicenseEvent, LicenseState, OpenRouterModel,
+  Range, Tone, WorkspaceSnapshot,
 } from '../lib/types';
 
 /** Demo license keys, one per server outcome. */
@@ -20,8 +24,91 @@ export const DEMO_KEYS = {
 
 const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 const LS_KEY = 'nexora.demo.license';
+const LS_WORKSPACE = 'nexora.local.workspace';
 
-function seed(now: Date): WorkspaceSnapshot {
+/** Every integration the app offers. Whether one is connected belongs to the workspace. */
+const CATALOG: Omit<Integration, 'connected'>[] = [
+  { id: 'li', name: 'LinkedIn', cat: 'Social', desc: 'Official OAuth. Approved scopes only.', oauth: true },
+  { id: 'oa', name: 'OpenAI', cat: 'AI', desc: 'Text and image generation.', oauth: false },
+  { id: 'ge', name: 'Google Gemini', cat: 'AI', desc: 'Content generation and research.', oauth: false },
+  { id: 'cl', name: 'Anthropic Claude', cat: 'AI', desc: 'Reply suggestions and analysis.', oauth: false },
+  { id: 'or', name: 'OpenRouter', cat: 'AI', desc: 'Bring your own key. Free and paid models from many providers.', oauth: false },
+  { id: 'hs', name: 'HubSpot', cat: 'CRM', desc: 'Two-way contact sync.', oauth: true },
+  { id: 'sf', name: 'Salesforce', cat: 'CRM', desc: 'Lead and account sync.', oauth: true },
+  { id: 'n8', name: 'n8n', cat: 'Automation', desc: 'Trigger external workflows by webhook.', oauth: false },
+  { id: 'wa', name: 'WhatsApp Cloud API', cat: 'Communication', desc: 'Approved business messaging channel.', oauth: false },
+  { id: 'gc', name: 'Google Calendar', cat: 'Communication', desc: 'Meeting and follow-up scheduling.', oauth: true },
+  { id: 'wh', name: 'Webhooks', cat: 'Developer', desc: 'Signed events for leads, posts and runs.', oauth: false },
+];
+const catalog = (connected: (id: string) => boolean = () => false): Integration[] => CATALOG.map((g) => ({ ...g, connected: connected(g.id) }));
+
+/** A new workspace: no leads, posts, conversations or workflows, nothing connected. */
+export function emptyWorkspace(): WorkspaceSnapshot {
+  return {
+    plan: { name: 'Professional', hosting: 'Hybrid hosting' },
+    profile: { name: '', email: '', workspace: 'My workspace' },
+    leads: [],
+    icp: { industry: '', title: '', sizeMin: '', sizeMax: '', location: '' },
+    prompts: [],
+    posts: [],
+    conversations: [],
+    savedReplies: [],
+    workflows: [],
+    runs: [],
+    integrations: catalog(),
+    tasks: [],
+    activity: [],
+    routing: { 'Content generation': 'OpenAI', 'Lead research': 'OpenAI', 'Reply suggestions': 'OpenAI' },
+    providers: PROVIDER_NAMES.map((name) => ({ name, verified: false })),
+    openRouter: { defaultModel: '', fallbackModel: '', monthlyBudgetUsd: '' },
+    mfa: false,
+    sessions: [{ id: 'this-device', device: 'This device', meta: 'Active now', current: true }],
+    sync: { region: 'Singapore', endpoint: '', offlineCache: true, conflict: 'ask', lastBackupAt: '' },
+    aiUsage: { postsGenerated: 0, tokensThisMonth: 0, costThisMonthUsd: 0 },
+    brandVoice: 'plain, specific, no hype',
+    automationDailyRunLimit: 500,
+  };
+}
+
+/** The workspace saved on this device, or a new empty one. */
+function storedWorkspace(): WorkspaceSnapshot {
+  const fresh = emptyWorkspace();
+  try {
+    const raw = localStorage.getItem(LS_WORKSPACE);
+    if (!raw) return fresh;
+    const saved = JSON.parse(raw) as Partial<WorkspaceSnapshot>;
+    const connected = new Set((saved.integrations ?? []).filter((g) => g.connected).map((g) => g.id));
+    return { ...fresh, ...saved, integrations: catalog((id) => connected.has(id)) };
+  } catch {
+    return fresh; // storage unavailable or unreadable
+  }
+}
+
+const sampleRequested = (): boolean => typeof location !== 'undefined' && new URLSearchParams(location.search).has('sample');
+
+const bar = (label: string, value: number) => ({ label, value });
+
+/** Dashboard numbers counted from the workspace itself: replies received per period, and the lead funnel. */
+export function workspaceMetrics(ws: WorkspaceSnapshot, range: Range, now: Date): DashboardMetrics {
+  const received = ws.conversations.flatMap((c) => c.msgs.filter((m) => !m.me).map((m) => new Date(m.at).getTime()));
+  const between = (from: Date, to: Date) => received.filter((t) => t >= from.getTime() && t < to.getTime()).length;
+  const [y, mo, d] = [now.getFullYear(), now.getMonth(), now.getDate()];
+  const bars = range === '7d'
+    ? Array.from({ length: 7 }, (_, i) => {
+      const from = new Date(y, mo, d - 6 + i);
+      return bar('SMTWTFS'[from.getDay()], between(from, new Date(y, mo, d - 5 + i)));
+    })
+    : range === '30d'
+      ? Array.from({ length: 4 }, (_, i) => bar(`W${i + 1}`, between(new Date(y, mo, d - 27 + i * 7), new Date(y, mo, d - 20 + i * 7))))
+      : Array.from({ length: 3 }, (_, i) => {
+        const from = new Date(y, mo - 2 + i, 1);
+        return bar(from.toLocaleString('en', { month: 'short' }), between(from, new Date(y, mo - 1 + i, 1)));
+      });
+  // Leads carry no stage yet, so every lead counts as new.
+  return { bars, funnel: [ws.leads.length, 0, 0, 0] };
+}
+
+function sampleWorkspace(now: Date): WorkspaceSnapshot {
   const week = weekOf(now);
   const today = toIsoDate(now);
   const at = (dayOffset: number, h: number, m: number) => {
@@ -77,19 +164,7 @@ function seed(now: Date): WorkspaceSnapshot {
         { type: 'Trigger', label: 'Every Monday 09:00' }, { type: 'Notification', label: 'Notify workspace of drafts in review' }] },
     ],
     runs: [],
-    integrations: [
-      { id: 'li', name: 'LinkedIn', cat: 'Social', desc: 'Official OAuth. Approved scopes only.', oauth: true, connected: false },
-      { id: 'oa', name: 'OpenAI', cat: 'AI', desc: 'Text and image generation.', oauth: false, connected: true },
-      { id: 'ge', name: 'Google Gemini', cat: 'AI', desc: 'Content generation and research.', oauth: false, connected: true },
-      { id: 'cl', name: 'Anthropic Claude', cat: 'AI', desc: 'Reply suggestions and analysis.', oauth: false, connected: false },
-      { id: 'or', name: 'OpenRouter', cat: 'AI', desc: 'Bring your own key. Free and paid models from many providers.', oauth: false, connected: false },
-      { id: 'hs', name: 'HubSpot', cat: 'CRM', desc: 'Two-way contact sync.', oauth: true, connected: true },
-      { id: 'sf', name: 'Salesforce', cat: 'CRM', desc: 'Lead and account sync.', oauth: true, connected: false },
-      { id: 'n8', name: 'n8n', cat: 'Automation', desc: 'Trigger external workflows by webhook.', oauth: false, connected: false },
-      { id: 'wa', name: 'WhatsApp Cloud API', cat: 'Communication', desc: 'Approved business messaging channel.', oauth: false, connected: true },
-      { id: 'gc', name: 'Google Calendar', cat: 'Communication', desc: 'Meeting and follow-up scheduling.', oauth: true, connected: false },
-      { id: 'wh', name: 'Webhooks', cat: 'Developer', desc: 'Signed events for leads, posts and runs.', oauth: false, connected: false },
-    ],
+    integrations: catalog((id) => ['oa', 'ge', 'hs', 'wa'].includes(id)),
     tasks: [
       { id: 't1', text: 'Follow up with Sarah Johnson', due: 'Today', done: false },
       { id: 't2', text: 'Publish “3 outreach mistakes” manually', due: 'Tue', done: false },
@@ -128,6 +203,7 @@ const MODELS: OpenRouterModel[] = [
   { id: 'mistralai/mistral-small', name: 'Mistral Small', context: '32k', free: false, price: '$0.20 in · $0.60 out', available: true },
 ];
 
+/** Chart numbers of the sample workspace. */
 const METRICS: Record<Range, { m: number; labels: string[]; values: number[] }> = {
   '7d': { m: 1, labels: ['M', 'T', 'W', 'T', 'F', 'S', 'S'], values: [3, 5, 2, 6, 4, 1, 2] },
   '30d': { m: 4.6, labels: ['W1', 'W2', 'W3', 'W4'], values: [18, 24, 15, 20] },
@@ -151,8 +227,13 @@ export function makePost(topic: string, audience: string, tone: Tone, variant: n
   return { hook: hooks[tone][variant % 2], body: bodies[tone], cta: `What has worked for you with ${t}?`, tags: `#${tag} #B2BMarketing #LinkedInGrowth` };
 }
 
-export function createDemoBackend(now: () => Date = () => new Date()): Backend {
-  const ws = seed(now());
+export function createDemoBackend(now: () => Date = () => new Date(), sample = sampleRequested()): Backend {
+  const ws = sample ? sampleWorkspace(now()) : storedWorkspace();
+  /** Keeps the workspace on this device. Sample data is never stored. */
+  const store = () => {
+    if (sample) return;
+    try { localStorage.setItem(LS_WORKSPACE, JSON.stringify(ws)); } catch { /* storage unavailable */ }
+  };
   const seen = new Set<string>();
   let license: LicenseState | null = null;
   let events: LicenseEvent[] = [];
@@ -208,6 +289,7 @@ export function createDemoBackend(now: () => Date = () => new Date()): Backend {
       if (c.op === 'delete') { if (i >= 0) list.splice(i, 1); }
       else if (i >= 0) list[i] = c.data as { id: string };
       else list.unshift(c.data as { id: string });
+      if (coll === 'activity') list.splice(6); // the dashboard shows the latest six
       return;
     }
     const single = singletons[c.entity];
@@ -219,6 +301,7 @@ export function createDemoBackend(now: () => Date = () => new Date()): Backend {
     const s = q.toLowerCase();
     const top = rankLeads(ws.leads, ws.icp)[0];
     const unread = ws.conversations.filter((c) => c.unread);
+    if (/score|lead|prospect/.test(s) && !top) return 'There are no leads in this workspace yet. Import a CSV from Integrations and I will rank them.';
     if (/score|lead|prospect/.test(s)) return `Highest match right now is ${top.name} at ${top.company} (${top.score.total}/100, confidence ${top.score.conf}/10). Open Lead scoring to see what was found and what is missing.`;
     if (/post|content|hook/.test(s)) return 'Try a hook built on one specific number from your own results, then one lesson and one question. Content Studio can draft it — it stays a draft until you approve it.';
     if (/reply|repl|message|inbox|answer/.test(s)) return unread.length ? `You have ${unread.length} unread. Start with ${unread[0].name} — intent: ${unread[0].intent.toLowerCase()}.` : 'Inbox is clear. No unread conversations.';
@@ -257,15 +340,21 @@ export function createDemoBackend(now: () => Date = () => new Date()): Backend {
     workspace: {
       async load() { return structuredClone(ws); },
       async metrics(range) {
+        if (!sample) return workspaceMetrics(ws, range, now());
         const r = METRICS[range];
         const f = [64, 41, 17, 6].map((v) => Math.round(v * r.m)) as [number, number, number, number];
         return { bars: r.values.map((value, i) => ({ label: r.labels[i], value })), funnel: f };
       },
-      async push(changes) { await wait(150); changes.forEach(apply); },
+      async push(changes) { await wait(150); changes.forEach(apply); store(); },
     },
     ai: {
       async chat(history) { await wait(700); return { text: reply(history[history.length - 1]?.text ?? '') }; },
-      async generatePost({ topic, audience, tone, variant }) { await wait(800); return makePost(topic, audience, tone, variant); },
+      async generatePost({ topic, audience, tone, variant }) {
+        await wait(800);
+        ws.aiUsage.postsGenerated++;
+        store();
+        return makePost(topic, audience, tone, variant);
+      },
       async draftMessage(leadId) {
         await wait(400);
         const l = ws.leads.find((x) => x.id === leadId);
@@ -288,6 +377,7 @@ export function createDemoBackend(now: () => Date = () => new Date()): Backend {
           ws.leads.push({ id: crypto.randomUUID(), name: r[n], company: r[c], title: cell(r, col('title')), industry: cell(r, col('industry')), size: Number.isInteger(size) && size > 0 ? size : null, country: cell(r, col('country')) });
           imported++;
         }
+        store();
         return { imported, skipped: rows.length - imported, leads: structuredClone(ws.leads) };
       },
     },
@@ -301,11 +391,13 @@ export function createDemoBackend(now: () => Date = () => new Date()): Backend {
         await wait(300);
         const g = ws.integrations.find((x) => x.id === id);
         if (g) g.connected = true;
+        store();
         return {};
       },
       async disconnect(id) {
         const g = ws.integrations.find((x) => x.id === id);
         if (g) g.connected = false;
+        store();
       },
     },
     providers: {
@@ -314,13 +406,19 @@ export function createDemoBackend(now: () => Date = () => new Date()): Backend {
         const p = ws.providers.find((x) => x.name === name);
         const ok = key.trim() ? true : (p?.verified ?? false); // empty key re-checks the stored one
         if (p) p.verified = ok;
+        store();
         return ok;
       },
       async openRouterModels() { await wait(300); return structuredClone(MODELS); },
     },
     system: {
-      async backup() { await wait(400); return now().toISOString(); },
-      async revokeSession(id) { ws.sessions = ws.sessions.filter((s) => s.id !== id); },
+      async backup() {
+        await wait(400);
+        ws.sync.lastBackupAt = now().toISOString();
+        store();
+        return ws.sync.lastBackupAt;
+      },
+      async revokeSession(id) { ws.sessions = ws.sessions.filter((s) => s.id !== id); store(); },
     },
   };
 }

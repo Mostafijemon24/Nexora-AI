@@ -229,6 +229,26 @@ button.card:hover { background: var(--tint); }
 .dialog-backdrop { z-index: 50; }
 .dialog { background: var(--color-bg); }
 
+/* ── page tour ─────────────────────────────────────────────────────────── */
+/* Covers the window so the page behind cannot be used while a step is shown. */
+.tour { position: fixed; inset: 0; z-index: 45; }
+.tour-dim { position: absolute; inset: 0; background: color-mix(in srgb, var(--color-neutral-900) 50%, transparent); }
+/* The highlighted element: a clear window whose shadow dims everything around it. */
+.tour-spot {
+  position: fixed; pointer-events: none; outline: 2px solid var(--color-accent);
+  box-shadow: 0 0 0 200vmax color-mix(in srgb, var(--color-neutral-900) 50%, transparent);
+  transition: top 0.2s, left 0.2s, width 0.2s, height 0.2s;
+}
+.tour-card {
+  position: fixed; width: min(360px, calc(100vw - 16px)); display: flex; flex-direction: column; gap: 10px;
+  padding: 16px; border: 1px solid var(--color-divider); background: var(--color-bg);
+  box-shadow: var(--shadow-lg); animation: nxrIn 0.2s;
+}
+.tour-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.tour-space { flex: 1; }
+:root[data-theme='dark'] .tour-dim { background: rgba(0, 0, 0, 0.6); }
+:root[data-theme='dark'] .tour-spot { box-shadow: 0 0 0 200vmax rgba(0, 0, 0, 0.6); }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }

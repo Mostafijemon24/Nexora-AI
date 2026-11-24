@@ -291,7 +291,7 @@ function SyncTab() {
       </Field>
       <div className="row wrap center" style={{ gap: 10 }}>
         <Button disabled={backing} onClick={() => void backup()}>{backing ? 'Backing up…' : 'Back up now'}</Button>
-        <span className="note">Last backup: {backupTime(sync.lastBackupAt)}</span>
+        <span className="note">Last backup: {sync.lastBackupAt ? backupTime(sync.lastBackupAt) : 'never'}</span>
       </div>
     </>
   );
@@ -359,12 +359,12 @@ export function Settings() {
   const tab = useApp((s) => s.setTab);
   return (
     <div className="grid g200 start screen">
-      <div role="tablist" aria-label="Settings" aria-orientation="vertical" style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <div role="tablist" aria-label="Settings" aria-orientation="vertical" style={{ display: 'flex', flexDirection: 'column', gap: 2 }} data-tour="set-tabs">
         {TABS.map(([id, label]) => (
           <button type="button" role="tab" key={id} className="pick bare" aria-selected={tab === id} onClick={() => useApp.getState().set({ setTab: id })}>{label}</button>
         ))}
       </div>
-      <Card className="span-3">
+      <Card className="span-3" tour="set-panel">
         {tab === 'profile' && <ProfileTab />}
         {tab === 'ai' && <AiTab />}
         {tab === 'security' && <SecurityTab />}

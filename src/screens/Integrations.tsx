@@ -92,10 +92,10 @@ export function Integrations() {
 
   return (
     <div className="stack screen">
-      <Card kicker="LinkedIn integration strategy">
+      <Card kicker="LinkedIn integration strategy" tour="int-strategy">
         <div className="grid g220" style={{ gap: 16 }}>
           <div><h5>Approved API</h5><div className="hint13">OAuth connection · permitted organization content · available analytics</div></div>
-          <div>
+          <div data-tour="int-import">
             <h5>Manual, user-controlled</h5>
             <div className="hint13">CSV lead import · message drafts · connection, publishing and follow-up reminders</div>
             <input ref={fileInput} type="file" accept=".csv,text/csv" hidden onChange={(e) => void importLeads(e.target.files?.[0])} />
@@ -107,7 +107,7 @@ export function Integrations() {
         </div>
       </Card>
       <Seg name="Category" value={cat} options={CATS} onChange={setCat} wrap style={{ alignSelf: 'flex-start' }} />
-      <div className="grid g240fill">
+      <div className="grid g240fill" data-tour="int-list">
         {ws.integrations.filter((g) => cat === 'All' || g.cat === cat).map((g) => (
           <Card key={g.id}>
             <div className="between center">

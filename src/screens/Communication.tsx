@@ -32,8 +32,8 @@ export function Communication() {
     if (c.unread) put({ ...c, unread: false });
   };
 
-  const notice = <div className="note">Conversations come from manual import and approved connectors only. LinkedIn private inbox is not accessed.</div>;
-  if (!conv) return <div className="screen" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>{notice}<Card><div className="muted">No conversations yet.</div></Card></div>;
+  const notice = <div className="note" data-tour="inbox-notice">Conversations come from manual import and approved connectors only. LinkedIn private inbox is not accessed.</div>;
+  if (!conv) return <div className="screen" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>{notice}<Card tour="inbox-list"><div className="muted">No conversations yet.</div></Card></div>;
 
   const send = () => {
     const t = draft.trim();
@@ -57,7 +57,7 @@ export function Communication() {
     <div className="screen" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {notice}
       <div className="grid g260 start">
-        <Card>
+        <Card tour="inbox-list">
           <input className="input" type="search" placeholder="Search conversations" aria-label="Search conversations" value={search} onChange={(e) => setSearch(e.target.value)} />
           <Seg name="Conversation filter" value={filter} options={FILTERS} onChange={setFilter} style={{ alignSelf: 'flex-start' }} />
           {list.map((c) => (
@@ -72,7 +72,7 @@ export function Communication() {
           {!list.length && <div className="muted">No conversations match.</div>}
         </Card>
 
-        <Card className="span-2">
+        <Card className="span-2" tour="inbox-thread">
           <div className="between center wrap" style={{ gap: 8 }}>
             <div>
               <div className="card-title">{conv.name}</div>

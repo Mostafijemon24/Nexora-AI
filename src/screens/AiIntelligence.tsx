@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Card, Chip, ErrorText, PrimaryButton, Seg, TextField } from '../components/ui';
-import { rankLeads } from '../lib/scoring';
+import { rankLeads, type RankedLead } from '../lib/scoring';
 import type { Icp } from '../lib/types';
 import { change, newId, remove, useApp, useWs } from '../state/store';
 
@@ -23,11 +23,10 @@ function Scoring() {
     saveTimer.current = setTimeout(() => useApp.getState().save(change('icp', 'icp', useApp.getState().ws!.icp)), 600);
   };
 
-  if (!ranked.length) return <Card kicker="Leads ranked by match"><div className="muted">No leads yet. Import a CSV from Integrations to score them.</div></Card>;
-  const lead = ranked.find((l) => l.id === sel) ?? ranked[0];
+  const lead: RankedLead | undefined = ranked.find((l) => l.id === sel) ?? ranked[0];
 
   const draft = async () => {
-    if (s.needsNet() || drafting) return;
+    if (!lead || s.needsNet() || drafting) return;
     setDrafting(true);
     try {
       const { text, notice } = await s.backend!.ai.draftMessage(lead.id);
@@ -43,7 +42,7 @@ function Scoring() {
 
   return (
     <div className="grid g280 start">
-      <Card kicker="Target customer criteria">
+      <Card kicker="Target customer criteria" tour="ai-icp">
         <TextField label="Industry" value={ws.icp.industry} onChange={setIcp('industry')} />
         <TextField label="Job titles (comma separated)" value={ws.icp.title} onChange={setIcp('title')} />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
@@ -54,7 +53,13 @@ function Scoring() {
         <div className="note">Scores update as you type. Missing data is never guessed.</div>
       </Card>
 
-      <Card kicker="Leads ranked by match" style={{ minWidth: 0, overflowX: 'auto' }}>
+      {!lead && (
+        <Card kicker="Leads ranked by match" tour="ai-leads">
+          <div className="muted">No leads yet. Import a CSV to score them against your criteria.</div>
+          <div><Button onClick={() => s.go('integrations')}>Open Integrations</Button></div>
+        </Card>
+      )}
+      {lead && <Card kicker="Leads ranked by match" style={{ minWidth: 0, overflowX: 'auto' }} tour="ai-leads">
         <table className="table">
           <thead><tr><th>Lead</th><th>Score</th><th>Conf.</th></tr></thead>
           <tbody>
@@ -71,9 +76,9 @@ function Scoring() {
             ))}
           </tbody>
         </table>
-      </Card>
+      </Card>}
 
-      <Card kicker={`Score breakdown · ${lead.name}`}>
+      {lead && <Card kicker={`Score breakdown · ${lead.name}`}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
           <span className="score-num">{lead.score.total}</span>
           <span className="muted">/ 100</span>
@@ -87,7 +92,7 @@ function Scoring() {
         ))}
         <div className="between" style={{ paddingTop: 4 }}><span>Data confidence</span><strong>{lead.score.conf} / 10</strong></div>
         <Button disabled={drafting} onClick={() => void draft()}>{drafting ? 'Drafting…' : 'Draft personalized message'}</Button>
-      </Card>
+      </Card>}
     </div>
   );
 }
@@ -98,7 +103,7 @@ function Assistant() {
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => { end.current?.scrollIntoView({ block: 'nearest' }); }, [s.chat.length, s.thinking]);
   return (
-    <Card kicker={`AI assistant · ${ws.routing['Reply suggestions']}`} style={{ maxWidth: 820 }}>
+    <Card kicker={`AI assistant · ${ws.routing['Reply suggestions']}`} style={{ maxWidth: 820 }} tour="ai-chat">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minHeight: 220 }} aria-live="polite">
         {s.chat.map((m, i) => <div key={i} className="bubble" data-me={m.me} style={{ maxWidth: '80%', whiteSpace: 'pre-wrap' }}>{m.text}</div>)}
         {s.thinking && <div className="hint13">Thinking…</div>}
@@ -155,7 +160,7 @@ function Prompts() {
         ))}
         {!ws.prompts.length && <div className="muted">No prompts yet. Add one to reuse it in the assistant.</div>}
       </Card>
-      <Card kicker="New prompt">
+      <Card kicker="New prompt" tour="ai-prompt-new">
         <TextField label="Title" value={title} onChange={(v) => { setTitle(v); setErr(false); }} />
         <label className="field">
           <label>Prompt</label>
@@ -172,7 +177,7 @@ export function AiIntelligence() {
   const tab = useApp((s) => s.aiTab);
   return (
     <div className="stack screen">
-      <Seg name="AI Intelligence view" value={tab} options={TABS} onChange={(aiTab) => useApp.getState().set({ aiTab })} style={{ alignSelf: 'flex-start' }} />
+      <Seg name="AI Intelligence view" value={tab} options={TABS} onChange={(aiTab) => useApp.getState().set({ aiTab })} style={{ alignSelf: 'flex-start' }} tour="ai-tabs" />
       {tab === 'scoring' && <Scoring />}
       {tab === 'chat' && <Assistant />}
       {tab === 'prompts' && <Prompts />}

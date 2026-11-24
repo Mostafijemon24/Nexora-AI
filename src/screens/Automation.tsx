@@ -48,7 +48,7 @@ export function Automation() {
     s.commit(`“${f.name}” ${f.on ? 'disabled' : 'enabled'}`, change('workflow', f.id, next));
   };
 
-  if (!wf) return <Card kicker="Workflows" className="screen"><div className="muted">No workflows yet.</div><div><Button onClick={create}>+ New</Button></div></Card>;
+  if (!wf) return <Card kicker="Workflows" className="screen" tour="auto-list"><div className="muted">No workflows yet. A workflow runs a set of steps when something happens, such as a new lead.</div><div><Button onClick={create}>+ New</Button></div></Card>;
 
   const runs = ws.runs.filter((r) => r.workflowId === wf.id);
   const run = () => {
@@ -79,7 +79,7 @@ export function Automation() {
 
   return (
     <div className="grid g280 start screen">
-      <Card>
+      <Card tour="auto-list">
         <div className="between center">
           <div className="card-kicker">Workflows</div>
           <Button variant="ghost" onClick={create}>+ New</Button>
@@ -99,7 +99,7 @@ export function Automation() {
         ))}
       </Card>
 
-      <Card className="span-2">
+      <Card className="span-2" tour="auto-editor">
         <div className="row wrap center">
           <input
             className="input" aria-label="Workflow name" value={wf.name} onChange={(e) => put({ ...wf, name: e.target.value }, true)}
@@ -138,7 +138,7 @@ export function Automation() {
         <div className="note">
           Actions that LinkedIn does not permit are not available as steps. Loop protection and a {ws.automationDailyRunLimit}-run daily limit apply.
         </div>
-        <div className="section-top">
+        <div className="section-top" data-tour="auto-runs">
           <div className="card-kicker">Run history</div>
           {runs.map((r) => (
             <div className="line center wrap" key={r.id} style={{ gap: 10 }}>

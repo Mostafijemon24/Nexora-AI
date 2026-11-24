@@ -1,7 +1,7 @@
 import { Card, CardButton, Seg, Button } from '../components/ui';
 import { greeting, longDate, relTime } from '../lib/dates';
 import type { Range } from '../lib/types';
-import { change, useApp, useWs, type WidgetId } from '../state/store';
+import { change, firstName, useApp, useWs, type WidgetId } from '../state/store';
 
 const RANGES = [['7d', '7 days'], ['30d', '30 days'], ['90d', '90 days']] as const;
 const RANGE_NAME: Record<Range, string> = { '7d': 'Last 7 days', '30d': 'Last 30 days', '90d': 'Last 90 days' };
@@ -33,7 +33,7 @@ export function Dashboard({ customizing, setCustomizing }: { customizing: boolea
     ['Sync', s.pending ? `${s.pending} pending` : 'Up to date'],
   ];
   const awaiting = ws.posts.filter((p) => p.status === 'In review').length + ws.runs.filter((r) => r.status === 'Awaiting approval').length;
-  const aiStats: [string, number][] = [['Posts generated', ws.aiUsage.postsGenerated], ['Assistant messages', s.chat.length], ['Drafts awaiting approval', awaiting]];
+  const aiStats: [string, number][] = [['Posts generated', ws.aiUsage.postsGenerated], ['Assistant messages', s.chat.filter((x) => x.me).length], ['Drafts awaiting approval', awaiting]];
 
   const toggleTask = (id: string) => {
     const t = ws.tasks.find((x) => x.id === id)!;
@@ -41,16 +41,17 @@ export function Dashboard({ customizing, setCustomizing }: { customizing: boolea
     s.update((x) => ({ tasks: x.tasks.map((y) => (y.id === id ? next : y)) }));
     s.save(change('task', id, next));
   };
+  const name = firstName(ws.profile.name);
   const noData = <div className="hint13">{off ? 'Not available offline.' : 'Loading…'}</div>;
 
   return (
     <div className="stack screen">
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end', justifyContent: 'space-between' }}>
         <div>
-          <h2 style={{ margin: 0 }}>{greeting(now)}, {ws.profile.name.split(' ')[0]}</h2>
+          <h2 style={{ margin: 0 }}>{greeting(now)}{name && `, ${name}`}</h2>
           <div className="hint13">{longDate(now)} · {RANGE_NAME[s.range]}</div>
         </div>
-        <div className="row wrap center">
+        <div className="row wrap center" data-tour="dash-range">
           <Seg name="Date range" value={s.range} options={RANGES} onChange={(r) => void s.setRange(r)} />
           <Button onClick={() => setCustomizing(!customizing)}>{customizing ? 'Done' : 'Customize'}</Button>
         </div>
@@ -69,7 +70,7 @@ export function Dashboard({ customizing, setCustomizing }: { customizing: boolea
       )}
 
       {w.kpi && (
-        <div className="grid g170">
+        <div className="grid g170" data-tour="dash-kpi">
           {kpis.map((k) => (
             <CardButton key={k.label} onClick={k.go}>
               <span className="card-kicker">{k.label}</span>
@@ -82,7 +83,7 @@ export function Dashboard({ customizing, setCustomizing }: { customizing: boolea
 
       <div className="grid g300">
         {w.perf && (
-          <Card kicker="Replies received">
+          <Card kicker="Replies received" tour="dash-perf">
             {m ? (
               <div className="bars">
                 {m.bars.map((b, i) => (
@@ -111,7 +112,7 @@ export function Dashboard({ customizing, setCustomizing }: { customizing: boolea
           </Card>
         )}
         {w.tasks && (
-          <Card kicker="Upcoming tasks">
+          <Card kicker="Upcoming tasks" tour="dash-tasks">
             {ws.tasks.map((t) => (
               <label key={t.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '6px 0', borderBottom: '1px solid var(--line2)', cursor: 'pointer' }}>
                 <input type="checkbox" checked={t.done} onChange={() => toggleTask(t.id)} style={{ accentColor: 'var(--color-accent)', marginTop: 3 }} />
@@ -132,6 +133,7 @@ export function Dashboard({ customizing, setCustomizing }: { customizing: boolea
             {ws.activity.map((a, i) => (
               <div className="line" key={i}><span>{a.text}</span><span className="note" style={{ whiteSpace: 'nowrap' }}>{relTime(a.at, now)}</span></div>
             ))}
+            {!ws.activity.length && <div className="hint13">Nothing yet. Changes you make appear here.</div>}
           </Card>
         )}
         {w.health && (

@@ -1,4 +1,4 @@
-import { Globe, Minus, Moon, PanelLeft, Square, Sun, X } from 'lucide-react';
+import { CircleHelp, Globe, Minus, Moon, PanelLeft, Square, Sun, X } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Button } from '../components/ui';
 import { useApp } from '../state/store';
@@ -59,7 +59,7 @@ export function Sidebar() {
   const unread = useUnread();
   const go = useApp((s) => s.go);
   return (
-    <aside className="sidebar" data-collapsed={collapsed}>
+    <aside className="sidebar" data-collapsed={collapsed} data-tour="nav">
       <div className="brand">
         <span className="brand-mark">N</span>
         {!collapsed && <span className="brand-name">Nexora AI</span>}
@@ -87,7 +87,7 @@ export function BottomNav() {
   const screen = useApp((s) => s.screen);
   const go = useApp((s) => s.go);
   return (
-    <nav className="bottom-nav" aria-label="Main">
+    <nav className="bottom-nav" aria-label="Main" data-tour="nav">
       {NAV.map(({ id, label, icon: Icon }) => (
         <button type="button" key={id} title={label} aria-label={label} aria-current={screen === id ? 'page' : undefined} onClick={() => go(id)}>
           <Icon size={18} strokeWidth={1.5} />
@@ -112,6 +112,9 @@ export function Header() {
       <h4>{TITLES[s.screen]}</h4>
       <span className="sync" data-off={off} role="status"><i />{syncLabel}</span>
       {native && <Button disabled={s.syncing} onClick={() => (off ? void s.goOnline() : s.goOffline())}>{off ? 'Go online' : 'Go offline'}</Button>}
+      <Button icon title="Show the tour for this page" aria-label="Show the tour for this page" data-tour="tour-help" onClick={() => s.startTour()}>
+        <CircleHelp size={16} strokeWidth={1.5} />
+      </Button>
       <Button icon title="Toggle theme" aria-label="Toggle theme" onClick={() => s.setTheme(s.theme === 'dark' ? 'light' : 'dark')}>
         {s.theme === 'dark' ? <Sun size={16} strokeWidth={1.5} /> : <Moon size={16} strokeWidth={1.5} />}
       </Button>

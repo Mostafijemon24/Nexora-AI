@@ -24,7 +24,7 @@ function Generator() {
   const ws = useWs();
   const s = useApp();
   const [topic, setTopic] = useState('');
-  const [audience, setAudience] = useState('marketing agency founders');
+  const [audience, setAudience] = useState('');
   const [tone, setTone] = useState<Tone>('Direct');
   const [gen, setGen] = useState<GeneratedPost | null>(null);
   const [busy, setBusy] = useState(false);
@@ -59,15 +59,15 @@ function Generator() {
 
   return (
     <div className="grid g300 start">
-      <Card kicker="01 · Topic">
+      <Card kicker="01 · Topic" tour="content-topic">
         <TextField label="Topic" placeholder="e.g. cold outreach follow-ups" value={topic} onChange={(v) => { setTopic(v); setErr(false); }} aria-invalid={err} />
         {err && <ErrorText>Enter a topic to generate a post.</ErrorText>}
-        <TextField label="Audience" value={audience} onChange={setAudience} />
+        <TextField label="Audience" placeholder="e.g. marketing agency founders" value={audience} onChange={setAudience} />
         <Field label="Tone"><Seg name="Tone" value={tone} options={TONES} onChange={setTone} /></Field>
-        <div className="note">Brand voice: {ws.profile.workspace} — {ws.brandVoice}.</div>
+        <div className="note">Brand voice: {ws.profile.workspace && `${ws.profile.workspace} — `}{ws.brandVoice}.</div>
         <PrimaryButton disabled={busy} onClick={() => void generate()}>{busy ? 'Generating…' : 'Generate post'}</PrimaryButton>
       </Card>
-      <Card kicker="02 · Edit and approve">
+      <Card kicker="02 · Edit and approve" tour="content-edit">
         {gen ? (
           <>
             <TextField label="Hook" value={gen.hook} onChange={edit('hook')} />
@@ -113,7 +113,7 @@ function Posts() {
   });
 
   return (
-    <Card style={{ overflowX: 'auto' }}>
+    <Card style={{ overflowX: 'auto' }} tour="content-posts">
       <table className="table">
         <thead><tr><th>Post</th><th>Status</th><th>Day</th><th><span className="sr-only">Actions</span></th></tr></thead>
         <tbody>
@@ -156,7 +156,7 @@ function Calendar() {
   };
 
   return (
-    <div className="scroll-x" style={{ padding: 6 }}>
+    <div className="scroll-x" style={{ padding: 6 }} data-tour="content-cal">
       <div className="cal">
         {week.map((d) => (
           <div
@@ -197,7 +197,7 @@ export function ContentStudio() {
   const tab = useApp((s) => s.csTab);
   return (
     <div className="stack screen">
-      <Seg name="Content Studio view" value={tab} options={TABS} onChange={(csTab) => useApp.getState().set({ csTab })} style={{ alignSelf: 'flex-start' }} />
+      <Seg name="Content Studio view" value={tab} options={TABS} onChange={(csTab) => useApp.getState().set({ csTab })} style={{ alignSelf: 'flex-start' }} tour="content-tabs" />
       {tab === 'gen' && <Generator />}
       {tab === 'posts' && <Posts />}
       {tab === 'cal' && <Calendar />}

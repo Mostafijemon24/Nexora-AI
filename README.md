@@ -199,9 +199,11 @@ Installers for **Windows** (`.exe`, `.msi`), **macOS** (`.dmg`, Apple Silicon an
 **Linux** (`.deb`, `.rpm`, `.AppImage`) are published on the
 [Releases page](https://github.com/Mostafijemon24/Nexora-AI/releases).
 
-The current installers are a **preview that runs on built-in sample data**, so you can explore
-every screen. Use the key `NXR-VALID-0001` to get in. They are not code-signed yet, so Windows and
-macOS will show a warning the first time you open them.
+The current installers are a **preview that runs without a server**. Use the key `NXR-VALID-0001`
+to get in. The workspace starts empty and a short tour introduces each page the first time you open
+it (the **?** button in the header replays it). What you add is kept on that device; AI answers, key
+checks and connection tests are simulated until a server is connected. The installers are not
+code-signed yet, so Windows and macOS will show a warning the first time you open them.
 
 **macOS, first launch.** If macOS says the app cannot be verified, open **System Settings → Privacy
 & Security** and click **Open Anyway**. If it says *"Nexora AI.app" is damaged and can't be opened*,
@@ -216,7 +218,8 @@ xattr -cr "/Applications/Nexora AI.app"
 
 - **In your browser, from this repository:** `npm install && npm run dev`, open
   `http://localhost:1420`, and activate with `NXR-VALID-0001`. Add `?platform=android` (or
-  `windows`, `macos`, `linux`) to the address to preview that layout.
+  `windows`, `macos`, `linux`) to the address to preview that layout, or `?sample` to fill the
+  workspace with sample data.
 - **The original clickable design prototype:** download the [`design/`](design) folder and open
   `Nexora AI.dc.html`. It is the design the app was built from.
 
@@ -250,7 +253,7 @@ The short version — the full, tracked list is in **[ROADMAP.md](ROADMAP.md)**.
 
 ```bash
 npm install
-npm run dev              # web app on sample data, http://localhost:1420
+npm run dev              # web app without a server, http://localhost:1420 (add ?sample for sample data)
 npm run tauri dev        # desktop app (needs the Tauri 2 prerequisites)
 npm test                 # app tests
 cargo test --workspace   # Rust tests

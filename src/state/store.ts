@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import type { Backend } from '../api';
 import type { ChatTurn } from '../api/backend';
 import { bridge, previewPlatform } from '../platform/bridge';
+import { NAV } from '../shell/nav';
+import { TOUR, type TourTabs } from '../tour/steps';
 import type {
   Change, DashboardMetrics, DeviceInfo, LicenseEvent, LicenseState, Platform, Range, ScreenId, Theme, WorkspaceSnapshot,
 } from '../lib/types';
@@ -45,6 +47,10 @@ export interface AppState {
 
   toast: string;
   dialog: DialogSpec | null;
+  /** The page tour in progress. `restore` holds the tabs that were open when it started. */
+  tour: { screen: ScreenId; step: number; restore: TourTabs } | null;
+  /** Pages whose tour has been seen or skipped on this device. */
+  toured: ScreenId[];
 
   license: LicenseState | null;
   licEvents: LicenseEvent[];
@@ -63,6 +69,11 @@ export interface AppState {
   setRange(range: Range): void;
   notify(message: string): void;
   confirm(dialog: DialogSpec): void;
+  /** Shows a page's tour from its first step (the current page by default). */
+  startTour(screen?: ScreenId): void;
+  tourStep(delta: 1 | -1): void;
+  /** Closes the tour and remembers it: for this page, or for every page when skipped. */
+  endTour(scope: 'page' | 'all'): void;
   /** True on a native target that is working offline. Web is always online. */
   isOffline(): boolean;
   /** Blocks connection-only features while offline, with a clear message. Returns true when blocked. */
@@ -83,7 +94,7 @@ export interface AppState {
   sendChat(text?: string): Promise<void>;
 }
 
-const LS = { theme: 'nexora.theme', collapsed: 'nexora.sidebar', widgets: 'nexora.widgets' };
+const LS = { theme: 'nexora.theme', collapsed: 'nexora.sidebar', widgets: 'nexora.widgets', toured: 'nexora.toured' };
 const read = <T,>(k: string, fallback: T): T => {
   try {
     const v = localStorage.getItem(k);
@@ -93,6 +104,8 @@ const read = <T,>(k: string, fallback: T): T => {
 const write = (k: string, v: unknown) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* ignore */ } };
 
 export const newId = (): string => crypto.randomUUID();
+/** "" until the profile has a name. */
+export const firstName = (name: string): string => name.trim().split(/\s+/)[0];
 
 export function change(entity: string, entityId: string, data?: unknown, op: Change['op'] = 'upsert'): Change {
   return { id: newId(), entity, op, entityId, data, at: new Date().toISOString() };
@@ -122,7 +135,7 @@ export const useApp = create<AppState>((set, get) => {
     const ws = await backend.workspace.load();
     set({
       ws,
-      chat: [{ me: false, text: `Hi ${ws.profile.name.split(' ')[0]}. Ask me about lead scores, post drafts or reply suggestions. I only use data in this workspace.` }],
+      chat: [{ me: false, text: `${firstName(ws.profile.name) ? `Hi ${firstName(ws.profile.name)}` : 'Hi'}. Ask me about lead scores, post drafts or reply suggestions. I only use data in this workspace.` }],
     });
     cacheWorkspace();
     void get().setRange(get().range);
@@ -148,7 +161,7 @@ export const useApp = create<AppState>((set, get) => {
     theme: 'light', collapsed: false, widgets: ALL_WIDGETS,
     online: true, syncing: false, pending: 0,
     screen: 'dashboard', aiTab: 'scoring', csTab: 'gen', setTab: 'profile', range: '7d',
-    toast: '', dialog: null,
+    toast: '', dialog: null, tour: null, toured: [],
     license: null, licEvents: [], ws: null, metrics: {}, chat: [], chatInput: '', thinking: false,
 
     async init(backend) {
@@ -158,6 +171,7 @@ export const useApp = create<AppState>((set, get) => {
       set({
         backend, device, platform: device.platform, preview: previewPlatform() !== null,
         theme, collapsed: read(LS.collapsed, false), widgets: { ...ALL_WIDGETS, ...read(LS.widgets, {}) },
+        toured: read<ScreenId[]>(LS.toured, []),
         pending: await pendingCount(),
       });
       try {
@@ -210,6 +224,23 @@ export const useApp = create<AppState>((set, get) => {
       toastTimer = setTimeout(() => set({ toast: '' }), 2600);
     },
     confirm(dialog) { set({ dialog }); },
+
+    startTour(screen = get().screen) {
+      const { aiTab, csTab, setTab } = get();
+      set({ screen, tour: { screen, step: 0, restore: { aiTab, csTab, setTab } }, ...TOUR[screen][0].tabs });
+    },
+    tourStep(delta) {
+      const tour = get().tour;
+      const to = tour && TOUR[tour.screen][tour.step + delta];
+      if (tour && to) set({ tour: { ...tour, step: tour.step + delta }, ...to.tabs });
+    },
+    endTour(scope) {
+      const tour = get().tour;
+      if (!tour) return;
+      const toured = scope === 'all' ? NAV.map((n) => n.id) : [...new Set([...get().toured, tour.screen])];
+      write(LS.toured, toured);
+      set({ tour: null, toured, ...tour.restore });
+    },
     isOffline() { return get().platform !== 'web' && !get().online; },
     needsNet(what = 'AI') {
       if (!get().isOffline()) return false;
@@ -295,7 +326,7 @@ export const useApp = create<AppState>((set, get) => {
       await bridge.entitlementClear();
       await bridge.secretDelete('session');
       await bridge.cacheClear();
-      set({ license: null, ws: null, boot: 'gate', chat: [], metrics: {} });
+      set({ license: null, ws: null, boot: 'gate', chat: [], metrics: {}, tour: null });
       void get().refreshLicenseEvents();
     },
 
@@ -303,7 +334,7 @@ export const useApp = create<AppState>((set, get) => {
       if (get().boot !== 'ready') return;
       void bridge.entitlementClear();
       void bridge.secretDelete('session');
-      set({ license: null, ws: null, boot: 'gate', chat: [], metrics: {}, dialog: null });
+      set({ license: null, ws: null, boot: 'gate', chat: [], metrics: {}, dialog: null, tour: null });
       get().notify('This device no longer has an active license.');
     },
 

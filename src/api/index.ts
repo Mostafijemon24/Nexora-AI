@@ -5,7 +5,7 @@ import { bridge } from '../platform/bridge';
 export type { Backend } from './backend';
 export { BackendError } from './backend';
 
-/** HTTP backend when VITE_API_URL is configured; otherwise the in-memory demo backend. */
+/** HTTP backend when VITE_API_URL is configured; otherwise the local backend, which starts with an empty workspace. */
 export async function createBackend(onLicenseLost: () => void): Promise<Backend> {
   const url = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
   if (url) {
@@ -15,7 +15,7 @@ export async function createBackend(onLicenseLost: () => void): Promise<Backend>
       onLicenseLost,
     });
   }
-  console.warn('[Nexora AI] VITE_API_URL is not set — running on the in-memory demo backend. Not for production.');
+  console.warn('[Nexora AI] VITE_API_URL is not set — running on the local backend (data stays on this device, AI is simulated). Not for production.');
   const { createDemoBackend } = await import('./demo');
   return createDemoBackend();
 }

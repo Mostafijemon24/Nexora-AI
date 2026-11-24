@@ -13,6 +13,7 @@ import { Settings } from './screens/Settings';
 import { PreviewChrome, Shell } from './shell/Shell';
 import { TITLES } from './shell/nav';
 import { useApp } from './state/store';
+import { Tour } from './tour/Tour';
 
 function Screen() {
   const screen = useApp((s) => s.screen);
@@ -84,6 +85,7 @@ export function App() {
       )}
       {boot === 'gate' && <LicenseGate />}
       {boot === 'ready' && <Shell><Screen key={screen} /></Shell>}
+      {boot === 'ready' && <Tour />}
       <Dialog />
       <Toast />
     </div>

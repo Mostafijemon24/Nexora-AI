@@ -6,10 +6,10 @@ const Corners = () => (
   </>
 );
 
-/** Blueprint card: transparent, hairline border, "+" registration marks at all four corners. */
-export function Card({ kicker, children, className = '', style }: { kicker?: ReactNode; children: ReactNode; className?: string; style?: React.CSSProperties }) {
+/** Blueprint card: transparent, hairline border, "+" registration marks at all four corners. `tour` names it for the page tour. */
+export function Card({ kicker, children, className = '', style, tour }: { kicker?: ReactNode; children: ReactNode; className?: string; style?: React.CSSProperties; tour?: string }) {
   return (
-    <div className={`card blueprint ${className}`} style={style}>
+    <div className={`card blueprint ${className}`} style={style} data-tour={tour}>
       <Corners />
       {kicker !== undefined && <div className="card-kicker">{kicker}</div>}
       {children}
@@ -45,11 +45,11 @@ export function Chip({ children, onClick }: { children: ReactNode; onClick: () =
   return <button type="button" className="tag tag-outline" onClick={onClick}>{children}</button>;
 }
 
-export function Seg<T extends string>({ value, options, onChange, name, style, wrap }: {
-  value: T; options: readonly (readonly [T, string])[]; onChange: (v: T) => void; name: string; style?: React.CSSProperties; wrap?: boolean;
+export function Seg<T extends string>({ value, options, onChange, name, style, wrap, tour }: {
+  value: T; options: readonly (readonly [T, string])[]; onChange: (v: T) => void; name: string; style?: React.CSSProperties; wrap?: boolean; tour?: string;
 }) {
   return (
-    <div className="seg" role="radiogroup" aria-label={name} style={{ ...(wrap ? { flexWrap: 'wrap' } : null), ...style }}>
+    <div className="seg" role="radiogroup" aria-label={name} style={{ ...(wrap ? { flexWrap: 'wrap' } : null), ...style }} data-tour={tour}>
       {options.map(([id, label]) => (
         <label className="seg-opt" key={id}>
           <input type="radio" name={name} checked={value === id} onChange={() => onChange(id)} />
