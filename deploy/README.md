@@ -18,7 +18,8 @@ curl -fsSL https://raw.githubusercontent.com/Mostafijemon24/Nexora-AI/main/deplo
 ```
 
 It installs Docker if needed, puts the code in `/opt/nexora`, generates the server's secrets into
-`/opt/nexora/deploy/.env`, starts everything and creates the first license. At the end it prints:
+`/opt/nexora/deploy/.env`, starts everything and creates the first license (the Business plan, five
+devices, one year). At the end it prints:
 
 - the **license key** (shown once — keep it),
 - the **API address**, and
@@ -35,6 +36,25 @@ In the GitHub repository, under *Settings → Secrets and variables → Actions 
 
 Then run the **Deploy web app** and **Release installers** workflows. From then on the web app and
 the installers talk to your server, and the license key from the installer activates them.
+
+An app that was built without a server address can also be pointed at the server by hand: on its
+first screen choose *Use a different server* and enter `https://api.example.com`. This works at
+once, without rebuilding anything; the two variables above make it the default for everyone and
+let the desktop app start offline.
+
+## After the first sign-in
+
+- **Set a password** in Settings → Security. From then on a license key alone no longer opens the
+  workspace, and you can invite team members (Business plan) who sign in with their own accounts.
+- **Email** for codes and invitations needs `SMTP_URL` (see Day-to-day below).
+- **Connections a user makes in the app** — Email (their own mailbox), WhatsApp, n8n, webhooks —
+  need nothing on the server.
+- **Sign-in connections** — LinkedIn, HubSpot, Salesforce, Google Calendar — each need a developer
+  app with that service; put its client id and secret in `deploy/.env` (names are in
+  `deploy/.env.example`) and register the redirect address
+  `https://api.example.com/v1/integrations/<li|hs|sf|gc>/callback` with the service.
+- **Licenses and plans**: `nexora exec api node src/cli.ts license:create --email … --name … --workspace … --plan business --months 12 --max-devices 5`.
+  Plans: `starter`, `professional`, `business`, their `-annual` forms, `lifetime` and `enterprise`.
 
 ## Update
 
@@ -63,7 +83,7 @@ server {
         proxy_set_header X-Forwarded-For $remote_addr;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_read_timeout 120s;
-        client_max_body_size 2m;
+        client_max_body_size 70m;   # restoring a backup uploads the backup file
     }
 }
 ```

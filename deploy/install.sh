@@ -75,7 +75,8 @@ done
 set -a; . "$ENV_FILE"; set +a
 if [ "$FIRST_RUN" = 1 ]; then
   say "Creating the first license"
-  compose exec -T api node src/cli.ts license:create --email "$OWNER_EMAIL" --name "$OWNER_NAME" --workspace "$WORKSPACE" --months 12
+  # The owner's own license: the Business plan (team members and several workspaces), five devices, one year.
+  compose exec -T api node src/cli.ts license:create --email "$OWNER_EMAIL" --name "$OWNER_NAME" --workspace "$WORKSPACE" --plan business --max-devices 5 --months 12
 fi
 
 say "Done"

@@ -21,8 +21,8 @@
 worth your time, helps you write posts and replies with AI, keeps every conversation in one inbox,
 and never does anything on LinkedIn that LinkedIn does not allow.
 
-It is one application that runs in the browser and as a desktop app on Windows, macOS and Linux,
-with the same data everywhere. Created by [Mostafijemon24](https://github.com/Mostafijemon24).
+It is one application that runs in the browser, as a desktop app on Windows, macOS and Linux, and
+on Android, with the same data everywhere. Created by [Mostafijemon24](https://github.com/Mostafijemon24).
 
 ## See it in action
 
@@ -46,7 +46,8 @@ with the same data everywhere. Created by [Mostafijemon24](https://github.com/Mo
 | A list of 500 leads and no idea who to contact first | Every lead scored 0–100 against your ideal customer, with the reason shown |
 | A blank page every time you need to post | A draft post in your brand voice in seconds, which you edit and approve |
 | Replies scattered across email, WhatsApp and notes | One inbox, with a suggested reply for each conversation |
-| Follow-ups forgotten | Follow-up tasks created from any conversation, shown on your dashboard |
+| Follow-ups forgotten | Workflows that create tasks, move leads and draft messages by themselves |
+| A CRM, a calendar and a mailbox that never agree | Two-way sync with HubSpot, Salesforce and Google Calendar; email and WhatsApp in one inbox |
 | Tools that scrape LinkedIn and get accounts restricted | Official connections and manual steps only — nothing automated behind your back |
 | No internet, no work | The desktop app keeps working offline and syncs when you are back |
 
@@ -61,13 +62,22 @@ score out of 100 and a breakdown of how it was reached. A separate **confidence*
 much data the score rests on. If a detail is missing, Nexora AI says *"Not available — not guessed"*
 and gives no points for it; it never makes facts up.
 
+### Keep every lead moving
+
+Each lead has a stage — New, Contacted, Interested, Converted or Lost — along with contact details,
+tags and notes. Search and filter the list, change many leads at once, drag them through the
+pipeline, and group them into campaigns that show how many were contacted, replied and converted.
+Import and export are plain CSV files.
+
 ### Write posts without the blank page
 
 <img src="docs/images/content-generator.png" alt="Content generator" width="100%">
 
 Give a topic, an audience and a tone. You get a hook, a body, a call to action and hashtags, all
 editable. Posts move through **Draft → In review → Approved → Scheduled → Published**, and a weekly
-calendar shows what goes out when. Nothing is published without your approval.
+calendar shows what goes out when. With LinkedIn connected, an approved post is published through
+LinkedIn's official API when you press Publish — or by itself on its scheduled day, if you switch
+that on. Nothing is published without your approval.
 
 <img src="docs/images/content-calendar.png" alt="Content calendar" width="100%">
 
@@ -75,9 +85,10 @@ calendar shows what goes out when. Nothing is published without your approval.
 
 <img src="docs/images/communication.png" alt="Communication inbox" width="100%">
 
-Each conversation shows what the person wants and how they sound. The AI suggests a reply, but it is
-only a suggestion: you press **Use**, edit it, and send it yourself. Internal notes stay with the
-conversation for your team.
+Connect your own mailbox and your WhatsApp Business number: incoming messages appear in the inbox,
+linked to the lead they came from, and your reply goes out on the same channel. Each reply shows
+whether it was sent. The AI suggests a reply, but it is only a suggestion: you press **Use**, edit
+it, and send it yourself. Internal notes stay with the conversation for your team.
 
 ### Ask the assistant
 
@@ -86,20 +97,24 @@ conversation for your team.
 Ask about your own leads, posts and replies. The assistant only uses the data in your workspace and
 tells you when something is missing.
 
-### Design your follow-up process
+### Let the follow-up run by itself
 
 <img src="docs/images/automation.png" alt="Automation workflows" width="100%">
 
-Lay out a workflow as numbered steps — a trigger, conditions, an AI draft, an approval, a status
-change. A workflow with an approval step always stops and waits for you.
+Build a workflow from steps: a trigger (a new lead, a stage change, a received message, a post
+status, a schedule), then conditions, waits, approvals and actions — tag or move the lead, create a
+task, draft a message with AI, notify the workspace, call a webhook. Switched on, it runs by itself.
+A message is only ever sent after an approval step, a test run shows what would happen without
+changing anything, and nothing acts on LinkedIn.
 
 ### Connect your tools, and bring your own AI
 
 <img src="docs/images/integrations.png" alt="Integrations" width="100%">
 
-Connect a CRM, a calendar and messaging channels, and import leads from a CSV file. For AI you use
-your own key with **OpenAI, Google Gemini, Anthropic Claude or OpenRouter**, choose which one handles
-each kind of task, and set a monthly spending limit.
+Connect HubSpot or Salesforce (leads sync both ways), Google Calendar (follow-up tasks appear in
+your calendar), email, WhatsApp, n8n and signed webhooks. For AI you use your own key with
+**OpenAI, Google Gemini, Anthropic Claude or OpenRouter**, choose which one handles each kind of
+task, and set a monthly spending limit.
 
 <img src="docs/images/settings-ai.png" alt="AI provider settings with the OpenRouter model list" width="100%">
 
@@ -108,7 +123,16 @@ each kind of task, and set a monthly spending limit.
 <img src="docs/images/dashboard-dark.png" alt="Dashboard in dark mode" width="100%">
 
 The dashboard shows new leads, unread conversations, scheduled posts, the lead funnel and your
-tasks for the last 7, 30 or 90 days. Light and dark themes are both built in.
+tasks for the last 7, 30 or 90 days. The Reports page adds contact, reply and conversion rates,
+campaign results, messages by channel and AI cost per provider, all exportable as CSV. Light and
+dark themes are both built in.
+
+### Work as a team
+
+Set a password and invite teammates by email; each signs in with their own account and takes one
+of the license's seats, without ever seeing the license key. Roles (owner, admin, member, viewer)
+decide who may change what. Two-step sign-in with an authenticator app can be switched on per
+person or required for everyone. An agency can keep a separate workspace for each client.
 
 ### Keep working without internet
 
@@ -122,8 +146,8 @@ exactly once.
 
 <img src="docs/images/mobile.png" alt="Nexora AI on a phone-sized screen" width="100%">
 
-The same app rearranges itself for a small screen with a bottom navigation bar. A packaged Android
-app is on the [roadmap](ROADMAP.md).
+The same app rearranges itself for a small screen with a bottom navigation bar, in a phone browser
+and in the Android app.
 
 ## How it works
 
@@ -150,7 +174,7 @@ flowchart LR
   D -. "works offline,<br/>syncs later" .-> A
 ```
 
-1. **Activate.** You enter your license key once. The server checks it and registers your device.
+1. **Activate.** You enter your license key once, or sign in with your account. The server checks it and registers your device.
 2. **Work.** Your leads, posts, conversations and workflows live in your own workspace on the server, so the web and desktop apps always show the same thing.
 3. **Use AI on your terms.** AI requests go through the server with *your* provider key, which is stored encrypted and never sent back to any device.
 4. **Stay in control.** AI only drafts. Sending a reply, publishing a post and approving a workflow run are always your decision.
@@ -184,27 +208,36 @@ Without an active license the app stays on the activation screen, on every devic
 | Lead scoring, AI assistant, prompt library | ✓ | ✓ | ✓ |
 | Content studio and calendar | ✓ | ✓ | ✓ |
 | Unified inbox with suggested replies | ✓ | ✓ | ✓ |
-| Workflow builder, integrations | | ✓ | ✓ |
-| Web and desktop apps, offline mode | | ✓ | ✓ |
-| Team members, roles, several workspaces *(planned)* | | | ✓ |
-| Priority support *(planned)* | | | ✓ |
+| Workflows that run by themselves, integrations and sync | | ✓ | ✓ |
+| Desktop and Android apps, offline mode | | ✓ | ✓ |
+| Team members, roles, several workspaces (5 devices) | | | ✓ |
+| Priority support | | | ✓ |
+
+The server enforces these limits. There are also annual plans, a one-payment **Lifetime desktop**
+license and an **Enterprise** plan (25 devices, everything included).
 
 > These prices and plan contents are the intended launch offer and may change before public
-> launch. Online payment is not connected yet — today licenses are issued directly by the owner.
+> launch; the annual, lifetime and enterprise prices in particular are placeholders. Online
+> payment is not connected yet — today licenses are issued directly by the owner.
 > Third-party costs (your AI provider, LinkedIn API access) are separate.
 
 ## Download
 
 Installers for **Windows** (`.exe`, `.msi`), **macOS** (`.dmg`, Apple Silicon and Intel) and
 **Linux** (`.deb`, `.rpm`, `.AppImage`) are published on the
-[Releases page](https://github.com/Mostafijemon24/Nexora-AI/releases).
+[Releases page](https://github.com/Mostafijemon24/Nexora-AI/releases). The web app is at
+**https://linkdin.avonixai.com**.
 
-The current installers are a **preview that runs without a server**. Use the key `NXR-VALID-0001`
-to get in. The workspace starts empty and a short tour introduces each page the first time you open
-it (the **?** button in the header replays it). What you add is kept on that device. Without a
-server, integrations and AI provider keys cannot be connected (LinkedIn sign-in included) and AI
-answers are built-in examples. The installers are not code-signed yet, so Windows and macOS will
-show a warning the first time you open them.
+Until a server is connected, the installers and the web app **run without one**. Use the key
+`NXR-VALID-0001` to get in. The workspace starts empty and a short tour introduces each page the
+first time you open it (the **?** button in the header replays it). What you add is kept on that
+device, and workflows run while the app is open. Without a server nothing can be connected or sent
+— integrations, AI provider keys, email, WhatsApp, accounts and team members all live on the server
+— and AI answers are built-in examples. To use a server, enter its address under *Use a different
+server* on the first screen, or in Settings → Hosting and backups.
+
+The installers are not code-signed yet, so Windows and macOS will show a warning the first time you
+open them.
 
 **macOS, first launch.** If macOS says the app cannot be verified, open **System Settings → Privacy
 & Security** and click **Open Anyway**. If it says *"Nexora AI.app" is damaged and can't be opened*,
@@ -231,25 +264,25 @@ Other sample keys show each activation outcome: `NXR-EXPIRED-0002`, `NXR-REVOKED
 
 ## What is coming next
 
-The short version — the full, tracked list is in **[ROADMAP.md](ROADMAP.md)**.
+The product features on the earlier roadmap are built. What remains is mostly switching things on
+with real accounts — the full list is in **[ROADMAP.md](ROADMAP.md)**.
 
-- Sign-in with email and password, team members and roles
+- Putting the server on a VPS and pointing the apps at it
+- Real accounts for email, WhatsApp, the CRMs, LinkedIn and the AI providers
 - Online payment and self-service subscription management
-- Sending replies through email and WhatsApp, and receiving messages automatically
-- Workflows that run on their own when a trigger fires
-- Two-way sync with HubSpot, Salesforce and Google Calendar
-- An Android app
-- Signed installers and automatic updates
-- Campaign management, a fuller lead CRM, and deeper analytics and reports
+- Signed installers; a signing key for automatic updates; an Android release build
+- WhatsApp template messages, email attachments, single sign-on, an iOS app
 
 ## For developers
 
 | Part | Where | Built with |
 | --- | --- | --- |
-| App (web + desktop UI) | [`src/`](src) | React, TypeScript, Vite |
-| Desktop shell | [`src-tauri/`](src-tauri) | Tauri 2, Rust |
+| App (web, desktop and Android UI) | [`src/`](src) | React, TypeScript, Vite |
+| Rules shared by the app and the server (workflow engine, scoring, reports) | [`src/lib/`](src/lib) | TypeScript |
+| Desktop and Android shell | [`src-tauri/`](src-tauri) | Tauri 2, Rust, Kotlin |
 | Offline queue and license-token verification | [`crates/nexora-core/`](crates/nexora-core) | Rust, SQLite, Ed25519 |
-| API, license server, AI gateway | [`backend/`](backend) | Node 22, PostgreSQL, optional Redis |
+| API, license server, accounts, workflows, messaging, sync, AI gateway | [`backend/`](backend) | Node 22, PostgreSQL, optional Redis |
+| Server install for a VPS | [`deploy/`](deploy) | Docker Compose, Caddy |
 | Design reference | [`design/`](design) | HTML prototype and design system |
 
 ```bash
@@ -260,12 +293,14 @@ npm test                 # app tests
 cargo test --workspace   # Rust tests
 ```
 
-To run the real server and connect the app to it, follow **[backend/README.md](backend/README.md)**.
+To run the server on your own machine, follow **[backend/README.md](backend/README.md)**; to put it
+on a VPS, **[deploy/README.md](deploy/README.md)**.
 What has been built, what has been verified and how is recorded in
 **[PROJECT_STATUS.md](PROJECT_STATUS.md)**.
 
-Every push runs all three test suites on GitHub Actions; the *Release installers* workflow builds
-the desktop installers.
+Every push to `main` runs all three test suites on GitHub Actions and publishes the web app; the
+*Release installers* workflow builds the desktop installers, and *Platforms* builds and starts the
+app on Windows, macOS, Linux and Android.
 
 ## License
 

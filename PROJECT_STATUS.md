@@ -1,97 +1,114 @@
 # Nexora AI — project status
 
-_Last updated: 23 November 2026_
+_Last updated: 24 November 2026_
 
-## Completed
+What is left to do is in [ROADMAP.md](ROADMAP.md). This page records what exists and how each part
+was checked, including what has **not** been checked.
 
-**Client** (`src/`, `src-tauri/`, `crates/nexora-core/`)
-- License gate and seven modules (Dashboard, AI Intelligence, Content Studio, Communication,
-  Automation, Integrations, Settings) in one React + TypeScript UI; light/dark; sidebar and Android
-  bottom navigation.
-- Tauri 2 shell with typed commands; Rust core for the SQLite offline queue, local cache and
-  offline verification of signed entitlement tokens; OS keystore for secrets on desktop.
-- HTTP client for the real API, and a local backend for running without a server: the workspace starts
-  empty and is kept in the device's storage; integrations and provider keys cannot be connected and say so,
-  and AI answers are built-in examples.
-  `?sample` loads the sample workspace instead.
-- A tour for every page, shown the first time the page is opened and from the header's ? button.
+## Built
 
-**Backend** (`backend/`)
-- License server: activation, one active device per license (configurable per plan or license),
-  email-verified transfer, deactivation, expiry, revocation, renewal, audit log, signed offline
-  entitlement tokens. Data model: `licenses`, `license_activations`, `license_devices`,
-  `license_entitlements`, `license_events`, `subscriptions`, `subscription_plans`, `usage_records`.
-- Per-request license enforcement on every protected route; workspace isolation on every query.
-- Workspace API: snapshot, computed dashboard metrics, validated idempotent writes, backups,
-  session revocation.
-- AI gateway: OpenAI, Google Gemini, Anthropic Claude and OpenRouter with bring-your-own keys
-  encrypted at rest, per-task routing, usage records, OpenRouter live model list, configured
-  fallback and monthly spend limit.
-- Integrations: key-based and OAuth (authorization-code) connections with encrypted credentials.
-- BullMQ worker for email and housekeeping (optional; the API does both itself without Redis).
-- Operator CLI: key generation, migrations, license create/revoke/renew, CSV lead import.
-- Lead import from CSV inside the app (Integrations → Manual, user-controlled).
-- OAuth access tokens are refreshed with the stored refresh token when they expire.
+**App** (`src/`, one React + TypeScript UI for the web, desktop and Android)
+- First screen: activate with a license key, sign in, or join from an invitation; choose a server of your own.
+- Nine pages: Dashboard, Leads, AI Intelligence, Content Studio, Communication, Automation, Reports,
+  Integrations, Settings. Light and dark themes; sidebar on wide windows, bottom navigation on narrow ones.
+- **Leads**: stages (New, Contacted, Interested, Converted, Lost), contact details, tags, notes; a
+  searchable, filterable list with bulk actions; a pipeline; campaigns with their figures; CSV import and export.
+- **Automation**: workflows built from typed steps with their own settings, test runs that change
+  nothing, run history with a log per step, approve and reject.
+- **Communication**: replies are sent by email or WhatsApp when the channel is connected, and each
+  reply shows whether it was sent; new conversations; incoming messages appear by themselves.
+- **Reports**: rates, stages, campaigns, messages by channel, runs, tasks, AI usage per provider; CSV export.
+- **Settings**: profile, AI providers, password and two-step sign-in, sessions with their place,
+  team and roles, workspaces, hosting, backups (download, restore), license, appearance.
+- A tour for every page, and a local mode that runs without a server (data on the device,
+  workflows run while the app is open, nothing is sent or connected, and the app says so).
+
+**Server** (`backend/`, Node 22, PostgreSQL, optional Redis)
+- License server: seats per license, email-verified transfer of one chosen device, deactivation,
+  expiry, revocation, renewal, audit log, signed offline tokens; an install that lost its session
+  gets its seat back with the key.
+- Accounts: password (scrypt), sign-in that takes a free seat, password reset by emailed code,
+  two-step sign-in (TOTP, recovery codes, can be required per workspace), invitations, roles
+  (owner, admin, member, viewer) checked on every request, several workspaces per account.
+- Plans: Starter, Professional, Business (monthly and annual), Lifetime desktop, Enterprise; what a
+  plan does not include (workflows, integrations, the desktop app, team, workspaces) is refused.
+- Workspace API: validated, idempotent writes; leads, campaigns, posts, conversations, workflows,
+  runs, tasks; metrics; backups (list, download, restore, daily automatic backup).
+- Workflow engine (shared with the app in `src/lib/workflow.ts`): runs on a new lead, a stage
+  change, a received message, a post status or a schedule; conditions, waits, approvals, tasks,
+  AI drafts, notifications, webhooks; a message is only sent after an approval step; a workflow is
+  never started by its own change; a daily run limit.
+- Messaging: email through the workspace's own SMTP account, WhatsApp through the Cloud API;
+  incoming mail over IMAP, WhatsApp on a signed webhook, and a generic incoming address.
+- Sync: HubSpot contacts and Salesforce leads both ways with a conflict rule; tasks with Google
+  Calendar; publishing approved posts to LinkedIn, by button or on their scheduled day.
+- AI gateway: OpenAI, Gemini, Claude, OpenRouter with the workspace's own keys; usage and cost per provider.
+- Background work once a minute: workflow runs and schedules, mailboxes, sync, publishing, backups.
+
+**Desktop and Android** (`src-tauri/`, `crates/`)
+- Tauri 2 shell; Rust core for the offline queue, cache and token verification; secrets in the OS keystore.
+- Android app with secrets in the Android Keystore; installer artwork; file saving and opening links.
+- Automatic updates, active in builds that were given an updater key.
 
 **Delivery**
-- `backend/Dockerfile` for the API, worker and migrations.
-- GitHub Actions: `ci.yml` runs every test suite on each push; `release.yml` builds Windows, macOS
-  and Linux installers into a draft release.
+- `deploy/`: one command installs the server on a VPS (API, worker, PostgreSQL, Redis, HTTPS) and updates it.
+- GitHub Actions: `ci.yml` (all tests, and the real server image started end to end), `pages.yml`
+  (the web app at https://linkdin.avonixai.com), `release.yml` (installers), `platforms.yml`
+  (build and start the app on Windows, macOS, Linux and Android), `deploy-server.yml` (update the VPS over SSH when its secrets are set).
 
-## Verification evidence
+## How it was checked
 
 | Check | Result |
 | --- | --- |
-| Backend tests (`backend`, `npm test`, real PostgreSQL 16 and Redis) | 59 passed |
-| Client unit tests (`npm test`) | 18 passed |
-| Rust tests (`cargo test --workspace`) | 18 passed, including the server-token contract test |
-| Browser run against the real API (web) | 20 checks passed: activation, httpOnly cookies, persistence across reload, same-device second tab, second-device rejection, transfer by emailed code, old device locked out, deactivation |
-| Desktop app (Linux build) run against the real API | activated with a real key; session, device id and entitlement token stored in the OS keyring; relaunch opened straight into the workspace; with the API stopped it started offline on the signed token and cached data |
-| Browser run in demo mode | 50 checks passed across every screen and platform frame (before the workspace started empty) |
-| Browser run of the empty workspace and the page tours | all 30 tour steps on desktop and phone widths, empty state of every page, data and tour state kept across a restart |
-| Typecheck and production build (client), typecheck (backend), Tauri shell compile (Linux) | pass |
+| Server tests (`backend`, `npm test`, real PostgreSQL 16) | 99 passed |
+| App unit tests (`npm test`) | 34 passed |
+| Rust tests (`cargo test --workspace`) | pass, including the server-token contract test |
+| Browser, app without a server | 15 checks: leads, bulk actions, campaign, pipeline, building and test-running a workflow, a workflow running by itself, inbox, reports and export, data kept across reload, phone layout |
+| Browser, app against the real server | 11 checks: a server workflow tagging a new lead and the page updating by itself, approval, multi-field connection dialog, incoming-message address, the message appearing in the inbox linked to its lead |
+| Browser, accounts against the real server | 15 checks: password, sign-out and sign-in, two-step sign-in with a QR code and recovery codes, invitation joined without a license key, member and viewer limits, a second workspace, backup download and restore, session place |
+| Windows, macOS, Linux | built and started in CI; the app must load its UI, call into Rust and still be running after 15 seconds |
+| Android | debug APK built and run on an emulator in CI: UI loaded, the Keystore stored, returned and deleted a secret |
+| Server image | built in CI and started with PostgreSQL and Redis; health check, license creation |
+| Live web app | https://linkdin.avonixai.com loads over https, on desktop and phone widths |
 
-What the license tests cover: first activation; second device rejected; 12 simultaneous activations
-admit exactly one; the database constraint alone refuses a duplicate seat; one browser with several
-tabs is one device; cookies replayed from another browser are refused; deactivation and transfer;
-wrong, expired, exhausted and wrong-device transfer codes; expired and revoked licenses; offline
-token contents, grace period and expiry cap; a copied device id is not accepted; every protected
-route returns 401 without a license; cross-workspace reads and writes are refused.
+What the server tests cover, beyond the earlier license tests: sign-in limits per account, reset
+codes (single use, five guesses), TOTP against the RFC 6238 vectors and replay refusal, each role's
+limits, workspace separation, plan limits, seat transfer of one chosen device, backup restore from
+another workspace's file without touching it, workflows (conditions, approval claimed once, delays,
+schedules in their own time zone, loop protection, daily limit, failed steps), replies delivered
+once, WhatsApp webhook signatures, incoming mail, CRM sync conflicts and echo, calendar sync, and
+LinkedIn publishing claimed once.
 
-## Not verified
+## Not checked against the real thing
 
-- **No provider was called with a real key.** The OpenAI, Gemini and OpenRouter adapters and the four
-  OAuth configurations (LinkedIn, HubSpot, Salesforce, Google Calendar) are written from the
-  providers' documented request shapes and tested against scripted responses only. Check each one
-  with a real account before relying on it, and confirm the default model names in `.env`.
-- No Windows, macOS or Android build has been made or run; only the Linux desktop app was. The
-  release workflow and the Dockerfile are written but have not been run.
-- Email was exercised through the queue and a capture mailer, not through a real SMTP server.
+Everything below is written and tested against **scripted** servers. None has been run against
+the live service, because that needs the owner's accounts:
 
-## Outstanding
+- **AI providers** (OpenAI, Gemini, Claude, OpenRouter) — no real key was used.
+- **LinkedIn** sign-in and publishing; **HubSpot**, **Salesforce**, **Google Calendar** sign-in and sync.
+- **Email**: sending through a real SMTP server and reading a real IMAP mailbox. The IMAP reader
+  (`backend/src/mailbox.ts`) has never talked to a mail server.
+- **WhatsApp** Cloud API sending and its webhook.
+- **The VPS install script** has not been run on a real server; its parts (the image, the stack,
+  license creation) run in CI.
+- **A real update** of an installed desktop app, the release workflow's update files, and the
+  Android release build's upload. No real phone was used.
+- A desktop app pointed at a server by address (rather than built for it) was not tried on a real desktop.
 
-- **Sign-in and team members.** A license on a device is the only credential; there are no
-  passwords, roles or invitations. The MFA switch in Settings is stored but enforces nothing.
-- **Billing.** Plans and subscriptions exist as data; nothing charges a card. Licenses are issued,
-  renewed and revoked with the CLI. A payment-provider webhook should call the same functions.
-- **Message delivery.** A reply sent in Communication is stored; it is not delivered to email,
-  WhatsApp or any other channel, and nothing imports inbound messages.
-- **Workflow execution.** Workflows and test runs are stored and rate-limited; no engine executes
-  their steps on triggers.
-- **Integration sync.** Connections are stored and testable; no data is synced with HubSpot,
-  Salesforce, Google Calendar or LinkedIn.
-- **Self-hosted endpoint and cloud region.** Saved as settings; the client always talks to
-  `VITE_API_URL` and no data is moved between regions.
-- **Backups.** A backup stores a snapshot row; there is no restore or download.
-- **Android** project initialisation and secure storage, **auto-update**, code signing.
+## One-time steps for the owner
 
-## Known limitations
-
-- A transfer on a multi-device license deactivates all of its devices, not one chosen device.
-- A native install that loses its session token (for example a wiped keystore) while its seat is
-  still active must use the transfer flow to get back in.
-- Sessions list shows device and last-seen time only; there is no location lookup.
-- AI cost is reported only for OpenRouter; other providers are counted in tokens.
-- Rate limits are per process unless Redis is configured.
-- The backend imports the lead-scoring module and shared types from the client's `src/lib`, so it
-  must be deployed from this repository layout.
+1. **Server**: add a DNS A record for the API name, then run the install command in
+   [deploy/README.md](deploy/README.md). Add `VITE_API_URL` and `NEXORA_LICENSE_PUBLIC_KEY` as
+   repository variables and re-run *Deploy web app* and *Release installers*.
+2. **Email**: put `SMTP_URL` and `MAIL_FROM` in `/opt/nexora/deploy/.env`, then run the installer again.
+3. **Automatic updates**: on your own computer run
+   `npm run tauri signer generate -- -w ~/.tauri/nexora-updater.key`; add the `.pub` contents as
+   the repository variable `TAURI_UPDATER_PUBKEY` and the key as the secret
+   `TAURI_SIGNING_PRIVATE_KEY` (and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` if you set one). Keep the
+   key: without it installed apps can no longer update.
+4. **Android release**: create an upload keystore and add the secrets `ANDROID_KEYSTORE` (base64 of
+   the `.jks`), `ANDROID_KEYSTORE_PASSWORD` and `ANDROID_KEY_ALIAS`.
+5. **Integrations**: for each service you want to offer, create its developer app and add
+   `OAUTH_<NAME>_CLIENT_ID` and `OAUTH_<NAME>_CLIENT_SECRET` to the server's `.env`
+   (`LINKEDIN`, `HUBSPOT`, `SALESFORCE`, `GOOGLE_CALENDAR`). The redirect address to register is
+   `https://<api domain>/v1/integrations/<li|hs|sf|gc>/callback`.

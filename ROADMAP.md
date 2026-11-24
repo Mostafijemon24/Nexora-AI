@@ -1,83 +1,70 @@
 # Nexora AI — roadmap and remaining work
 
-This is the complete list of what is **not built yet**. Everything already built and verified is in
-[PROJECT_STATUS.md](PROJECT_STATUS.md).
+Almost everything on the earlier roadmap is now built. This page lists what is **left**, and for
+each item what is missing and who has to act. Everything already built, and how it was checked, is
+in [PROJECT_STATUS.md](PROJECT_STATUS.md).
 
-Each item says what is missing today and what is needed before it can be built.
-`[ ]` = not started.
+`[ ]` = open. Items marked **owner** cannot be done in the code: they need an account, a key or a
+decision that only the owner has.
 
-## 1. Needed before real customers can use it
+## 1. To switch on — the code is ready, an account or key is needed (owner)
 
-- [ ] **Run the server in production.**
-  *Today:* the server has only run on a development machine; the published installers run without it: data stays on the device, integrations and provider keys cannot be connected, and AI answers are built-in examples.
-  *Needed:* hosting, a domain with https, a PostgreSQL database (Redis optional). Then set the
-  repository variables `VITE_API_URL` and `NEXORA_LICENSE_PUBLIC_KEY` and re-run the
-  *Release installers* workflow to produce installers that talk to the real server.
-- [ ] **Verify each AI provider with a real key** — OpenAI, Google Gemini, Anthropic Claude, OpenRouter.
-  *Today:* the connections are written and tested against simulated responses only.
-  *Needed:* one API key per provider; confirm the default model names in the server settings.
-- [ ] **Verify each sign-in integration with a real account** — LinkedIn, HubSpot, Salesforce, Google Calendar.
-  *Today:* the connection flow is built and tested against simulated responses only.
-  *Needed:* a developer app (client id and secret) with each provider; LinkedIn must approve the permissions.
-- [ ] **Real email delivery for license-transfer codes.**
-  *Today:* without mail settings the code is written to the server log.
-  *Needed:* an SMTP account.
-- [ ] **Code signing** for the Windows and macOS installers, so they open without a warning.
-  *Today:* the macOS app is ad-hoc signed, so it opens after *Open Anyway*; the release workflow
-  signs and notarizes it as soon as the Apple secrets listed in `release.yml` are added.
-  *Needed:* a Windows code-signing certificate and an Apple Developer account.
+- [ ] **Put the server on the VPS.** One command installs it; see [deploy/README.md](deploy/README.md).
+  *Needed:* a DNS record for the API (for example `api.avonixai.com`) pointing at the VPS, then the
+  install command run once as root. Afterwards set the repository variables `VITE_API_URL` and
+  `NEXORA_LICENSE_PUBLIC_KEY` so the web app and installers use the server. Until then the web app
+  and the installers run without a server, with data kept on each device.
+- [ ] **Email delivery** for transfer codes, password resets and invitations.
+  *Needed:* `SMTP_URL` in the server's `.env`. Without it these messages are written to the server
+  log instead of being sent.
+- [ ] **AI provider keys** — OpenAI, Google Gemini, Anthropic Claude, OpenRouter. *Postponed by the owner.*
+  The connections are written and tested against scripted responses only; each needs one real key to confirm.
+- [ ] **LinkedIn developer app.** *Postponed by the owner.* Sign-in and publishing are written; LinkedIn
+  must approve the app and its posting permission (`w_member_social`).
+- [ ] **HubSpot, Salesforce and Google Calendar developer apps** (client id and secret each, in the
+  server's `.env`). The two-way sync is written and tested against scripted responses only.
+- [ ] **A mailbox and a WhatsApp Business number** to connect in the app (Integrations → Email,
+  WhatsApp). Sending and receiving are written and tested against scripted servers only.
+- [ ] **Automatic updates** for the desktop apps. *Needed:* an updater signing key made once on the
+  owner's computer and added to the repository (steps in PROJECT_STATUS.md). Updates then reach
+  installed apps from the next release with a higher version number.
+- [ ] **Android release.** A debug build is produced and tested in CI. *Needed for a release build:*
+  an upload keystore added to the repository secrets, and a Play Console account to publish.
+- [ ] **Code signing** for the Windows and macOS installers. *Postponed by the owner* — the apps
+  open after a warning. *Needed:* a Windows code-signing certificate and an Apple Developer account.
+- [ ] **Online payment.** *Postponed by the owner.* Plans, limits and licenses exist; licenses are
+  issued, renewed and revoked from the command line. A payment provider's notifications would call
+  the same functions.
 
-## 2. Product features not built yet
+## 2. Decisions for the owner
 
-- [ ] **Sign-in and team members** — email and password, password reset, inviting teammates, roles and permissions.
-  *Today:* a license activated on a device is the only identity. The MFA switch in Settings is saved but does nothing.
-  *Needed first:* a design for the sign-in, registration and team screens.
-- [ ] **Online payment and subscriptions** — checkout, renewal, cancellation, invoices.
-  *Today:* plans exist in the database; licenses are created, renewed and revoked from the command line.
-  *Needed:* a payment provider account. Its notifications will call the license functions that already exist.
-- [ ] **Sending and receiving messages** — deliver replies by email and WhatsApp; bring incoming messages in automatically.
-  *Today:* a reply is saved in the conversation but is not sent anywhere.
-  *Needed:* an email-sending account and a WhatsApp Business account.
-- [ ] **Workflows that run by themselves.**
-  *Today:* workflows can be designed, test-run and approved, but no step is carried out.
-  *Needed first:* a precise definition of each step type (which triggers exist, what a condition can
-  test, what each action changes). Steps are free text at the moment.
-- [ ] **Two-way data sync** with HubSpot, Salesforce and Google Calendar.
-  *Today:* these can be connected and tested, but no contacts or events are exchanged.
-- [ ] **Publishing to LinkedIn** through the official API.
-  *Today:* "Mark published" is a manual reminder.
-  *Needed:* LinkedIn's approval of the posting permission.
-- [ ] **Backup restore and download.**
-  *Today:* "Back up now" stores a copy on the server; it cannot be restored or downloaded yet.
-- [ ] **Self-hosted server address and region choice.**
-  *Today:* both are saved in Settings but the app always uses the address it was built with.
+- [ ] **Prices of the new plans.** Annual plans are set to ten times the monthly price ($90, $290,
+  $790), the lifetime desktop license to $349 and Enterprise to "custom". These are placeholders
+  in `backend/migrations/004_accounts_plans.sql`; change them before selling.
+- [ ] **Price of Gemini requests.** The server prices AI requests from a table of model prices.
+  OpenAI's and Anthropic's default models are listed; Gemini's could not be confirmed and is left
+  out, so Gemini usage shows tokens and "not priced". Add it with `AI_PRICES` in the server's `.env`.
+- [ ] **Language of the app.** The app and its tours are in English. A Bengali interface has not been started.
 
-## 3. Platforms
+## 3. Not built
 
-- [ ] **Android app.**
-  *Today:* the layout and bottom navigation work at phone size; no installable app exists.
-  *Needed:* an approach for storing the session securely on Android (the app refuses to store it
-  insecurely), then the Android project setup and a Play Store account.
-- [ ] **Automatic updates** for the desktop apps.
-- [ ] **Run-through on Windows and macOS.**
-  *Today:* installers are built for both, but only the Linux app has been run and tested.
-- [ ] **Installer artwork** (DMG background, Windows installer images). The app icon is final.
+- [ ] **Sending WhatsApp template messages.** A free-form WhatsApp reply only works within 24 hours
+  of the person's last message (WhatsApp's rule). Starting a conversation needs an approved template,
+  which is not supported yet.
+- [ ] **Email attachments and formatted mail.** Replies are plain text; attachments on incoming mail are ignored.
+- [ ] **Push-based mail.** New mail is read once a minute; there is no instant push.
+- [ ] **Moving a workspace between servers.** Use a backup file: download it on one server, restore it on the other.
+- [ ] **Transferring ownership of a workspace**, and deleting a workspace, from the app.
+- [ ] **Single sign-on** (SAML or OpenID Connect) for Enterprise.
+- [ ] **iOS app.**
 
-## 4. Planned modules from the product blueprint
+## 4. Known limits
 
-These were in the original product plan and are not part of version 1.
-
-- [ ] **Advanced lead CRM** — pipeline stages, tags, lead detail pages, bulk actions.
-- [ ] **Campaign management** — plan, run and measure outreach campaigns.
-- [ ] **Analytics and reporting** — acceptance, reply and conversion rates, AI cost, exports.
-- [ ] **Workspace and team management** — several workspaces, shared prompt and reply libraries.
-- [ ] **Annual plans, a lifetime desktop license and an enterprise plan.**
-
-## 5. Smaller known gaps
-
-- [ ] Moving a license on a multi-device plan deactivates all its devices, not one chosen device.
-- [ ] A desktop app that loses its saved session must use the transfer flow to get back in.
-- [ ] The sessions list shows the device and last-seen time, but no location.
-- [ ] AI spending is shown in dollars only for OpenRouter; other providers are counted in tokens.
-- [ ] The differences between plans (which features each plan includes) are not enforced; only the device limit is.
-- [ ] The server's container image has been written but never built or run.
+- A build without the server's public key (`NEXORA_LICENSE_PUBLIC_KEY`) cannot start offline; it
+  needs the server each time it opens.
+- Without a server, workflows only run while the app is open, and nothing can be sent or connected.
+- Salesforce does not let a lead be marked "converted" through its API, so that stage is not sent
+  to Salesforce; it is read from Salesforce.
+- The address a workspace's webhooks call is checked to be a public https address when it is saved
+  and each time it is used; a host that later changes where it points is re-checked on use.
+- Reports do not show acceptance of LinkedIn connection requests: Nexora AI never reads LinkedIn.
