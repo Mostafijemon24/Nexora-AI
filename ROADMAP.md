@@ -61,7 +61,7 @@ Each item says what is missing today and what is needed before it can be built.
 - [ ] **Automatic updates** for the desktop apps.
 - [ ] **Run-through on Windows and macOS.**
   *Today:* installers are built for both, but only the Linux app has been run and tested.
-- [ ] **A final app icon** and installer artwork. The current icon is a placeholder.
+- [ ] **Installer artwork** (DMG background, Windows installer images). The app icon is final.
 
 ## 4. Planned modules from the product blueprint
 

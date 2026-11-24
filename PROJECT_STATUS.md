@@ -82,7 +82,7 @@ route returns 401 without a license; cross-workspace reads and writes are refuse
 - **Self-hosted endpoint and cloud region.** Saved as settings; the client always talks to
   `VITE_API_URL` and no data is moved between regions.
 - **Backups.** A backup stores a snapshot row; there is no restore or download.
-- **Android** project initialisation and secure storage, **auto-update**, code signing, app icon.
+- **Android** project initialisation and secure storage, **auto-update**, code signing.
 
 ## Known limitations
 

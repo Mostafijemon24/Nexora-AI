@@ -108,9 +108,13 @@ Every server entity carries `workspace_id`; authorization is enforced on the bac
 ## Assets
 - Icons: Lucide, stroke width 1.5.
 - Fonts: Barlow, Barlow Condensed (Google Fonts) — bundle them locally for offline native builds.
-- No images. App icon and installer artwork are not designed yet.
+- App icon: `logo.webp` is the artwork as supplied. `app-icon.png` (Windows, Linux, Android, web) and
+  `app-icon-macos.png` (smaller, on Apple's icon grid) are that tile cut out on a transparent square.
+  To regenerate `src-tauri/icons`, run `npx tauri icon` on each and take `icon.icns` from the macOS one.
+- Installer artwork is not designed yet.
 
 ## Files
 - `Nexora AI.dc.html` — the prototype (template + logic in one file)
 - `support.js` — prototype runtime, not for production
 - `_ds/…/styles.css` — token and component stylesheet (source of truth for visual values)
+- `logo.webp`, `app-icon.png`, `app-icon-macos.png` — app icon artwork
