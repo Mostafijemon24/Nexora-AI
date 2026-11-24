@@ -85,11 +85,8 @@ a:hover { color: var(--color-accent); }
   transition: width 0.15s; overflow: hidden;
 }
 .sidebar[data-collapsed='true'] { width: 54px; }
-.brand { display: flex; align-items: center; gap: 8px; padding: 4px 8px 14px; white-space: nowrap; }
-.brand-mark {
-  width: 22px; height: 22px; flex: none; background: var(--color-accent); color: var(--color-bg);
-  display: grid; place-items: center; font-family: var(--font-heading); font-weight: 600; font-size: 13px;
-}
+.brand { display: flex; align-items: center; gap: 8px; padding: 4px 6px 14px; white-space: nowrap; }
+.brand-mark { width: 26px; height: 26px; flex: none; display: block; }
 .brand-name { font-family: var(--font-heading); font-weight: 600; font-size: 17px; }
 .nav-item {
   display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px;

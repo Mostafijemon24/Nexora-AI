@@ -1,5 +1,6 @@
 import { CircleHelp, Globe, Minus, Moon, PanelLeft, Square, Sun, X } from 'lucide-react';
 import type { ReactNode } from 'react';
+import logo from '../assets/logo.png';
 import { Button } from '../components/ui';
 import { useApp } from '../state/store';
 import { NAV, TITLES } from './nav';
@@ -61,7 +62,7 @@ export function Sidebar() {
   return (
     <aside className="sidebar" data-collapsed={collapsed} data-tour="nav">
       <div className="brand">
-        <span className="brand-mark">N</span>
+        <img className="brand-mark" src={logo} alt="" width={26} height={26} />
         {!collapsed && <span className="brand-name">Nexora AI</span>}
       </div>
       <nav aria-label="Main" style={{ display: 'contents' }}>
