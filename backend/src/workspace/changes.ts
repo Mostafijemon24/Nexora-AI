@@ -9,6 +9,7 @@ import { workflowProblem, type WfEvent } from '../../../src/lib/workflow.ts';
 import type { Ctx } from '../context.ts';
 import { tx, type Q } from '../db.ts';
 import { badRequest, conflict } from '../errors.ts';
+import { need, needFeature } from '../auth/accounts.ts';
 import type { Auth } from '../license/service.ts';
 import { sendReply } from '../messaging.ts';
 import { decideRun, emit, startRun } from './automation.ts';
@@ -88,6 +89,8 @@ const Schemas = {
 } as const;
 
 type Entity = keyof typeof Schemas;
+/** Settings of the whole workspace, as opposed to the work in it. */
+const ADMIN_ONLY = new Set<Entity>(['routing', 'openrouter', 'sync', 'security', 'publishing']);
 const DELETABLE: Partial<Record<Entity, string>> = { prompt: 'prompts', post: 'posts', workflow: 'workflows', task: 'tasks', lead: 'leads', campaign: 'campaigns' };
 
 /** What a committed change still has to set in motion. */
@@ -116,6 +119,8 @@ async function applyOne(ctx: Ctx, q: Q, auth: Auth, raw: unknown): Promise<After
 
   if (!(c.entity in Schemas)) throw badRequest(`Unknown entity "${c.entity}".`);
   const entity = c.entity as Entity;
+  if (ADMIN_ONLY.has(entity)) need(auth, 'admin', 'change workspace settings');
+  if (entity === 'workflow' || entity === 'run') needFeature(auth, 'workflows', 'Workflows');
 
   if (c.op === 'delete') {
     const table = DELETABLE[entity];
@@ -189,8 +194,9 @@ async function applyOne(ctx: Ctx, q: Q, auth: Auth, raw: unknown): Promise<After
       const p = d as z.infer<typeof Schemas.profile>;
       const taken = await q.query('SELECT 1 FROM users WHERE lower(email) = lower($1) AND id <> $2', [p.email, auth.userId]);
       if (taken.rowCount) throw conflict('That email address is already in use.');
-      await q.query('UPDATE users SET name = $1, email = $2 WHERE id = $3 AND workspace_id = $4', [p.name, p.email, auth.userId, w]);
-      await q.query('UPDATE workspaces SET name = $1 WHERE id = $2', [p.workspace, w]);
+      await q.query('UPDATE users SET name = $1, email = $2 WHERE id = $3', [p.name, p.email, auth.userId]);
+      // The workspace's name is a workspace setting; a member changing their own profile leaves it alone.
+      if (auth.role === 'owner' || auth.role === 'admin') await q.query('UPDATE workspaces SET name = $1 WHERE id = $2', [p.workspace, w]);
       break;
     }
     case 'icp': await q.query('UPDATE workspaces SET icp = $1 WHERE id = $2', [j(d), w]); break;
@@ -202,7 +208,16 @@ async function applyOne(ctx: Ctx, q: Q, auth: Auth, raw: unknown): Promise<After
       break;
     }
     case 'publishing': await q.query('UPDATE workspaces SET auto_publish = $1 WHERE id = $2', [(d as z.infer<typeof Schemas.publishing>).auto, w]); break;
-    case 'security': await q.query('UPDATE workspaces SET mfa = $1 WHERE id = $2', [(d as z.infer<typeof Schemas.security>).mfa, w]); break;
+    case 'security': {
+      const on = (d as z.infer<typeof Schemas.security>).mfa;
+      if (on) {
+        // Requiring a second step from everyone is only possible for someone who already has one, so nobody is locked out by it.
+        const me = (await q.query('SELECT totp_enabled FROM users WHERE id = $1', [auth.userId])).rows[0];
+        if (!me?.totp_enabled) throw badRequest('Set up two-step sign-in for your own account first, then require it for the workspace.', 'mfa_setup_required');
+      }
+      await q.query('UPDATE workspaces SET mfa = $1 WHERE id = $2', [on, w]);
+      break;
+    }
   }
   return after;
 }

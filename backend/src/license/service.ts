@@ -25,6 +25,7 @@ export interface Client {
   sessionToken?: string;
 }
 
+export type Role = 'owner' | 'admin' | 'member' | 'viewer';
 export interface Auth {
   sessionId: string;
   workspaceId: string;
@@ -33,6 +34,17 @@ export interface Auth {
   activationId: string;
   licenseId: string;
   native: boolean;
+  /** The user's role in the session's workspace. */
+  role: Role;
+  /** What the license's plan includes beyond the base product, e.g. "workflows". */
+  features: string[];
+  /**
+   * False for a session opened with a license key alone on an account that has sign-in switched
+   * on, or whose user no longer belongs to the workspace: it holds the seat but cannot use the workspace.
+   */
+  signedIn: boolean;
+  /** The workspace requires two-step sign-in and this person has not set it up yet. */
+  mfaSetupRequired: boolean;
 }
 
 export interface Granted {
@@ -44,31 +56,35 @@ export interface Granted {
   sessionToken: string;
   deviceId: string;
   native: boolean;
+  /** True when the account has sign-in switched on and this session still has to sign in. */
+  signInRequired?: boolean;
 }
 export type ActivateResult = Granted | ({ ok: false } & ActivationFailure);
 export type ConfirmResult = ActivateResult | { ok: false; code: 'bad_code' };
 
-interface LicenseRow {
+export interface LicenseRow {
   id: string; workspace_id: string; owner_user_id: string; key_last4: string; status: string; expires_at: Date;
-  plan_code: string; plan_name: string; price_cents: number; period: string; plan_max_devices: number;
+  plan_code: string; plan_name: string; price_cents: number; period: string; plan_max_devices: number; features: unknown;
 }
-interface DeviceRow { id: string; kind: 'web' | 'native'; client_ref: string | null; name: string; os: string; ua_hash: string | null }
+export interface DeviceRow { id: string; kind: 'web' | 'native'; client_ref: string | null; name: string; os: string; ua_hash: string | null }
 
 const isNative = (d: DeviceInfo) => d.platform !== 'web';
 const label = (d: { name: string; os: string }) => `${d.name} · ${d.os}`;
 const clean = (s: unknown, max: number, fallback: string) => (typeof s === 'string' && s.trim() ? s.trim().slice(0, max) : fallback);
 
-const LICENSE_SELECT = `
+export const LICENSE_SELECT = `
   SELECT l.id, l.workspace_id, l.owner_user_id, l.key_last4, l.status, l.expires_at,
-         p.code AS plan_code, p.name AS plan_name, p.price_cents, p.period, p.max_devices AS plan_max_devices
+         p.code AS plan_code, p.name AS plan_name, p.price_cents, p.period, p.max_devices AS plan_max_devices, p.features
   FROM licenses l JOIN subscriptions s ON s.id = l.subscription_id JOIN subscription_plans p ON p.id = s.plan_id`;
 
-async function logEvent(q: Q, type: string, detail: string, licenseId: string | null, deviceId: string | null, at: Date) {
+export const planFeatures = (features: unknown): string[] => (Array.isArray(features) ? features.filter((f): f is string => typeof f === 'string') : []);
+
+export async function logEvent(q: Q, type: string, detail: string, licenseId: string | null, deviceId: string | null, at: Date) {
   await q.query('INSERT INTO license_events (license_id, device_id, type, detail, created_at) VALUES ($1, $2, $3, $4, $5)', [licenseId, deviceId, type, detail, at]);
 }
 
 /** Seats allowed: a per-license entitlement override, else the plan default (1). */
-async function maxDevices(q: Q, lic: LicenseRow): Promise<number> {
+export async function maxDevices(q: Q, lic: LicenseRow): Promise<number> {
   const r = await q.query("SELECT value FROM license_entitlements WHERE license_id = $1 AND feature = 'max_devices'", [lic.id]);
   const v = r.rows[0]?.value;
   return Number.isInteger(v) && v >= 1 ? v : lic.plan_max_devices;
@@ -80,7 +96,7 @@ async function maxDevices(q: Q, lic: LicenseRow): Promise<number> {
  * server issued, bound to a hash of its user agent — so every tab of one browser is one device,
  * and the cookie alone does not move to another browser.
  */
-async function resolveDevice(ctx: Ctx, q: Q, c: Client): Promise<DeviceRow> {
+export async function resolveDevice(ctx: Ctx, q: Q, c: Client): Promise<DeviceRow> {
   const name = clean(c.device.name, 80, 'Unknown device');
   const os = clean(c.device.os, 80, 'Unknown');
   if (isNative(c.device)) {
@@ -120,8 +136,9 @@ async function licenseState(ctx: Ctx, q: Q, lic: LicenseRow, activationId: strin
     state: {
       keyMasked: `NXR-••••-${lic.key_last4}`,
       plan: lic.plan_name,
-      priceLabel: `$${(lic.price_cents / 100).toFixed(lic.price_cents % 100 ? 2 : 0)} / ${lic.period}`,
-      renewsOn: fullDate(lic.expires_at),
+      priceLabel: lic.plan_code === 'enterprise' ? 'Custom pricing'
+        : `$${(lic.price_cents / 100).toFixed(lic.price_cents % 100 ? 2 : 0)}${lic.period === 'once' ? ', one payment' : ` / ${lic.period}`}`,
+      renewsOn: lic.period === 'once' ? 'Never — lifetime license' : fullDate(lic.expires_at),
       deviceName: row.name,
       deviceOs: row.os,
       activatedAt: shortDate(row.activated_at),
@@ -143,24 +160,38 @@ function entitlementFor(ctx: Ctx, lic: LicenseRow, device: DeviceRow): string {
   });
 }
 
-async function openSession(ctx: Ctx, q: Q, lic: LicenseRow, deviceId: string, activationId: string): Promise<string> {
+const TIME_ZONE = /^[A-Za-z_]+(\/[A-Za-z0-9_+-]+){0,2}$/;
+
+async function openSession(ctx: Ctx, q: Q, who: { userId: string; workspaceId: string; signedIn: boolean }, deviceId: string, activationId: string, c: Client): Promise<string> {
   const token = newToken();
+  const zone = typeof c.device.timeZone === 'string' && TIME_ZONE.test(c.device.timeZone) ? c.device.timeZone.slice(0, 60) : null;
   await q.query(
-    'INSERT INTO sessions (workspace_id, user_id, device_id, activation_id, token_hash, created_at, last_seen_at) VALUES ($1, $2, $3, $4, $5, $6, $6)',
-    [lic.workspace_id, lic.owner_user_id, deviceId, activationId, hmac(ctx.config.hashSecret, `session:${token}`), ctx.now()]);
+    `INSERT INTO sessions (workspace_id, user_id, device_id, activation_id, token_hash, created_at, last_seen_at, signed_in, time_zone, ip)
+     VALUES ($1, $2, $3, $4, $5, $6, $6, $7, $8, $9)`,
+    [who.workspaceId, who.userId, deviceId, activationId, hmac(ctx.config.hashSecret, `session:${token}`), ctx.now(), who.signedIn, zone, c.ip === 'unknown' ? null : c.ip.slice(0, 60)]);
   return token;
 }
 
-async function grant(ctx: Ctx, q: Q, lic: LicenseRow, device: DeviceRow, activationId: string): Promise<Granted> {
+/**
+ * Opens a session on a seat. With a license key alone the session is the owner's — signed in,
+ * unless the owner has set a password, in which case the app must sign in next. `as` names the
+ * user who signed in.
+ */
+export async function grant(ctx: Ctx, q: Q, lic: LicenseRow, device: DeviceRow, activationId: string, c: Client, as?: { userId: string; workspaceId: string }): Promise<Granted> {
   const { state } = await licenseState(ctx, q, lic, activationId);
+  const ownerHasPassword = Boolean((await q.query('SELECT password_hash FROM users WHERE id = $1', [lic.owner_user_id])).rows[0]?.password_hash);
+  const who = as ? { ...as, signedIn: true } : { userId: lic.owner_user_id, workspaceId: lic.workspace_id, signedIn: !ownerHasPassword };
+  // One session per seat: an earlier one for this activation (a lost token, an earlier sign-in) ends here.
+  await q.query('UPDATE sessions SET revoked_at = $2 WHERE activation_id = $1 AND revoked_at IS NULL', [activationId, ctx.now()]);
   return {
     ok: true, license: state, entitlementToken: entitlementFor(ctx, lic, device),
-    sessionToken: await openSession(ctx, q, lic, device.id, activationId), deviceId: device.id, native: device.kind === 'native',
+    sessionToken: await openSession(ctx, q, who, device.id, activationId, c), deviceId: device.id, native: device.kind === 'native',
+    ...(who.signedIn ? {} : { signInRequired: true }),
   };
 }
 
 /** Lowest free seat number. The caller holds the license row lock. */
-async function freeSlot(q: Q, licenseId: string, max: number): Promise<number | null> {
+export async function freeSlot(q: Q, licenseId: string, max: number): Promise<number | null> {
   const r = await q.query('SELECT slot FROM license_activations WHERE license_id = $1 AND deactivated_at IS NULL', [licenseId]);
   const used = new Set(r.rows.map((x) => x.slot as number));
   for (let s = 0; s < max; s++) if (!used.has(s)) return s;
@@ -172,12 +203,17 @@ export async function authenticate(ctx: Ctx, c: Pick<Client, 'sessionToken' | 'w
   if (!c.sessionToken) return null;
   const now = ctx.now();
   const r = await ctx.db.query(
-    `SELECT s.id AS session_id, s.workspace_id, s.user_id, s.device_id, s.activation_id, s.last_seen_at,
-            a.license_id, d.kind, d.ua_hash
+    `SELECT s.id AS session_id, s.workspace_id, s.user_id, s.device_id, s.activation_id, s.last_seen_at, s.signed_in,
+            a.license_id, d.kind, d.ua_hash, p.features, m.role, w.mfa AS ws_mfa, u.totp_enabled, (u.password_hash IS NOT NULL) AS has_password
      FROM sessions s
+     JOIN workspaces w ON w.id = s.workspace_id
+     JOIN users u ON u.id = s.user_id
      JOIN license_activations a ON a.id = s.activation_id
      JOIN licenses l ON l.id = a.license_id
+     JOIN subscriptions sub ON sub.id = l.subscription_id
+     JOIN subscription_plans p ON p.id = sub.plan_id
      JOIN license_devices d ON d.id = s.device_id
+     LEFT JOIN workspace_members m ON m.workspace_id = s.workspace_id AND m.user_id = s.user_id
      WHERE s.token_hash = $1 AND s.revoked_at IS NULL AND a.deactivated_at IS NULL
        AND l.status = 'active' AND l.expires_at > $2`,
     [hmac(ctx.config.hashSecret, `session:${c.sessionToken}`), now]);
@@ -194,6 +230,11 @@ export async function authenticate(ctx: Ctx, c: Pick<Client, 'sessionToken' | 'w
   return {
     sessionId: row.session_id, workspaceId: row.workspace_id, userId: row.user_id, deviceId: row.device_id,
     activationId: row.activation_id, licenseId: row.license_id, native: row.kind === 'native',
+    role: (row.role ?? 'viewer') as Role, features: planFeatures(row.features),
+    // A member removed from the workspace keeps the seat but is signed out of it.
+    signedIn: Boolean(row.signed_in) && Boolean(row.role),
+    // Only an account that signs in with a password can have a second step.
+    mfaSetupRequired: Boolean(row.ws_mfa) && Boolean(row.has_password) && !row.totp_enabled,
   };
 }
 
@@ -212,7 +253,47 @@ export async function status(ctx: Ctx, c: Client): Promise<{ license: LicenseSta
   return { license: state, entitlementToken: entitlementFor(ctx, lic, device) || undefined, events: await recentEvents(ctx.db, lic.id) };
 }
 
-async function checkUsable(q: Q, lic: LicenseRow, deviceId: string | null, now: Date): Promise<({ ok: false } & ActivationFailure) | null> {
+/** The devices holding a seat, oldest first, as far as someone with the key may see them. */
+async function seats(q: Q, licenseId: string) {
+  return (await q.query(
+    `SELECT a.id, a.device_id, a.activated_at, a.last_validated_at, d.name, d.os FROM license_activations a JOIN license_devices d ON d.id = a.device_id
+     WHERE a.license_id = $1 AND a.deactivated_at IS NULL ORDER BY a.activated_at`, [licenseId])).rows as
+    { id: string; device_id: string; activated_at: Date; last_validated_at: Date; name: string; os: string }[];
+}
+
+/**
+ * Gives the calling device a seat on a license: the one it already holds, or a free one. The
+ * caller holds the license row lock. Returns the activation id, or why there is none.
+ */
+export async function seatFor(q: Q, lic: LicenseRow, device: DeviceRow, now: Date): Promise<{ activationId: string } | ({ ok: false } & ActivationFailure)> {
+  if (device.kind === 'native' && !planFeatures(lic.features).includes('desktop')) {
+    await logEvent(q, 'activation_failed', `Failed activation: the ${lic.plan_name} plan does not include the desktop app`, lic.id, device.id, now);
+    return { ok: false, code: 'not_included', plan: lic.plan_name };
+  }
+  const active = await seats(q, lic.id);
+  const mine = active.find((a) => a.device_id === device.id);
+  // The device is known by something only the server and that device hold: the registration id an
+  // install keeps in the OS secure store, or the server's own cookie bound to one browser. Presenting
+  // it again gets the seat back, so losing a session does not need the transfer flow.
+  if (mine) return { activationId: mine.id };
+  const max = await maxDevices(q, lic);
+  const slot = await freeSlot(q, lic.id, max);
+  if (slot === null) {
+    await logEvent(q, 'activation_failed', 'Failed activation: Already active on another device', lic.id, device.id, now);
+    const other = active[0];
+    return {
+      ok: false, code: 'in_use', deviceName: other.name, deviceOs: other.os, activatedAt: shortDate(other.activated_at),
+      ...(max > 1 ? { devices: active.map((a) => ({ id: a.device_id, name: a.name, os: a.os, activatedAt: shortDate(a.activated_at) })) } : {}),
+    };
+  }
+  const a = await q.query(
+    'INSERT INTO license_activations (license_id, device_id, slot, activated_at, last_validated_at) VALUES ($1, $2, $3, $4, $4) RETURNING id',
+    [lic.id, device.id, slot, now]);
+  await logEvent(q, 'activated', `Activated on ${label(device)}`, lic.id, device.id, now);
+  return { activationId: a.rows[0].id };
+}
+
+export async function checkUsable(q: Q, lic: LicenseRow, deviceId: string | null, now: Date): Promise<({ ok: false } & ActivationFailure) | null> {
   if (lic.status === 'revoked') {
     await logEvent(q, 'activation_failed', 'Failed activation: License revoked', lic.id, deviceId, now);
     return { ok: false, code: 'revoked' };
@@ -229,7 +310,6 @@ export async function activate(ctx: Ctx, rawKey: string, c: Client): Promise<Act
   const keyHash = hmac(ctx.config.hashSecret, `license:${key}`);
   if (!(await ctx.limiter.allow(`act:ip:${c.ip}`, 20, 600)) || !(await ctx.limiter.allow(`act:key:${keyHash}`, 20, 600))) throw tooMany();
   const now = ctx.now();
-  const auth = await authenticate(ctx, c);
 
   return tx(ctx.db, async (q) => {
     // Lock the license row: every activation, transfer and deactivation of one license runs in turn.
@@ -242,25 +322,8 @@ export async function activate(ctx: Ctx, rawKey: string, c: Client): Promise<Act
     const unusable = await checkUsable(q, lic, device.id, now);
     if (unusable) return unusable;
 
-    const active = await q.query(
-      `SELECT a.id, a.device_id, a.activated_at, d.name, d.os FROM license_activations a JOIN license_devices d ON d.id = a.device_id
-       WHERE a.license_id = $1 AND a.deactivated_at IS NULL ORDER BY a.activated_at`, [lic.id]);
-    const mine = active.rows.find((a) => a.device_id === device.id);
-    // Already active here — but only a caller holding this activation's session is believed to be
-    // this device. A device id on its own (it comes from the client) proves nothing.
-    if (mine && auth?.activationId === mine.id) return grant(ctx, q, lic, device, mine.id);
-
-    const slot = mine ? null : await freeSlot(q, lic.id, await maxDevices(q, lic));
-    if (slot === null) {
-      const other = active.rows[0];
-      await logEvent(q, 'activation_failed', 'Failed activation: Already active on another device', lic.id, device.id, now);
-      return { ok: false, code: 'in_use', deviceName: other.name, deviceOs: other.os, activatedAt: shortDate(other.activated_at) } as const;
-    }
-    const a = await q.query(
-      'INSERT INTO license_activations (license_id, device_id, slot, activated_at, last_validated_at) VALUES ($1, $2, $3, $4, $4) RETURNING id',
-      [lic.id, device.id, slot, now]);
-    await logEvent(q, 'activated', `Activated on ${label(device)}`, lic.id, device.id, now);
-    return grant(ctx, q, lic, device, a.rows[0].id);
+    const seat = await seatFor(q, lic, device, now);
+    return 'ok' in seat ? seat : grant(ctx, q, lic, device, seat.activationId, c);
   });
 }
 
@@ -288,7 +351,12 @@ export async function requestTransfer(ctx: Ctx, rawKey: string, c: Client): Prom
   return { deviceId: out.device.id, native: out.device.kind === 'native' };
 }
 
-export async function confirmTransfer(ctx: Ctx, rawKey: string, code: string, c: Client): Promise<ConfirmResult> {
+/**
+ * Completes a transfer with the emailed code. On a license with several seats only one device
+ * gives up its seat: the one named in `replaceDeviceId`, or the one that has gone longest without
+ * checking in.
+ */
+export async function confirmTransfer(ctx: Ctx, rawKey: string, code: string, c: Client, replaceDeviceId?: string): Promise<ConfirmResult> {
   const keyHash = hmac(ctx.config.hashSecret, `license:${normalizeKey(String(rawKey ?? ''))}`);
   if (!(await ctx.limiter.allow(`xferc:ip:${c.ip}`, 30, 900))) throw tooMany();
   const now = ctx.now();
@@ -313,17 +381,25 @@ export async function confirmTransfer(ctx: Ctx, rawKey: string, code: string, c:
     }
     await q.query('UPDATE license_transfers SET consumed_at = $2 WHERE id = $1', [t.id, now]);
 
-    const old = await q.query(
-      `UPDATE license_activations a SET deactivated_at = $2, deactivation_reason = 'transferred'
-       FROM license_devices d WHERE d.id = a.device_id AND a.license_id = $1 AND a.deactivated_at IS NULL
-       RETURNING a.id, d.name, d.os`, [lic.id, now]);
-    await q.query('UPDATE sessions SET revoked_at = $2 WHERE activation_id = ANY($1) AND revoked_at IS NULL', [old.rows.map((r) => r.id), now]);
+    const active = await seats(q, lic.id);
+    const mine = active.find((a) => a.device_id === device.id);
+    if (mine) return grant(ctx, q, lic, device, mine.id, c); // this device already has a seat
+    const max = await maxDevices(q, lic);
+    let freed: typeof active = [];
+    if (active.length >= max) {
+      const chosen = replaceDeviceId && UUID.test(replaceDeviceId) ? active.find((a) => a.device_id === replaceDeviceId) : undefined;
+      const victim = chosen ?? [...active].sort((x, y) => new Date(x.last_validated_at).getTime() - new Date(y.last_validated_at).getTime())[0];
+      freed = [victim];
+      await q.query("UPDATE license_activations SET deactivated_at = $2, deactivation_reason = 'transferred' WHERE id = $1", [victim.id, now]);
+      await q.query('UPDATE sessions SET revoked_at = $2 WHERE activation_id = $1 AND revoked_at IS NULL', [victim.id, now]);
+    }
+    const slot = (await freeSlot(q, lic.id, max)) ?? 0;
     const a = await q.query(
-      'INSERT INTO license_activations (license_id, device_id, slot, activated_at, last_validated_at) VALUES ($1, $2, 0, $3, $3) RETURNING id',
-      [lic.id, device.id, now]);
-    const from = old.rows.map((r) => r.name).join(', ') || 'no device';
+      'INSERT INTO license_activations (license_id, device_id, slot, activated_at, last_validated_at) VALUES ($1, $2, $3, $4, $4) RETURNING id',
+      [lic.id, device.id, slot, now]);
+    const from = freed.map((r) => r.name).join(', ') || 'no device';
     await logEvent(q, 'transferred', `Transferred from ${from} to ${label(device)}`, lic.id, device.id, now);
-    return grant(ctx, q, lic, device, a.rows[0].id);
+    return grant(ctx, q, lic, device, a.rows[0].id, c);
   });
 }
 
@@ -349,14 +425,20 @@ export async function createLicense(ctx: Ctx, input: NewLicense): Promise<{ key:
   const now = ctx.now();
   return tx(ctx.db, async (q) => {
     const plan = (await q.query('SELECT id FROM subscription_plans WHERE code = $1', [input.plan])).rows[0];
-    if (!plan) throw badRequest(`Unknown plan "${input.plan}".`);
+    if (!plan) {
+      const codes = (await q.query('SELECT code FROM subscription_plans ORDER BY price_cents, code')).rows.map((r) => r.code).join(', ');
+      throw badRequest(`Unknown plan "${input.plan}". Plans: ${codes}.`);
+    }
     let user = (await q.query('SELECT id, workspace_id FROM users WHERE lower(email) = lower($1)', [input.email])).rows[0];
     if (!user) {
-      const ws = await q.query('INSERT INTO workspaces (name) VALUES ($1) RETURNING id', [input.workspace]);
-      user = (await q.query('INSERT INTO users (workspace_id, email, name) VALUES ($1, $2, $3) RETURNING id, workspace_id', [ws.rows[0].id, input.email, input.name])).rows[0];
+      const ws = await q.query('INSERT INTO workspaces (name, created_at) VALUES ($1, $2) RETURNING id', [input.workspace, now]);
+      user = (await q.query('INSERT INTO users (workspace_id, email, name, created_at) VALUES ($1, $2, $3, $4) RETURNING id, workspace_id', [ws.rows[0].id, input.email, input.name, now])).rows[0];
+      await q.query('UPDATE workspaces SET owner_user_id = $2 WHERE id = $1', [user.workspace_id, user.id]);
+      await q.query("INSERT INTO workspace_members (workspace_id, user_id, role, created_at) VALUES ($1, $2, 'owner', $3)", [user.workspace_id, user.id, now]);
     }
     const end = new Date(now);
-    end.setUTCMonth(end.getUTCMonth() + input.months);
+    // A lifetime license does not expire; a hundred years stands in for "never".
+    end.setUTCMonth(end.getUTCMonth() + (input.plan === 'lifetime' ? 1200 : input.months));
     const sub = await q.query('INSERT INTO subscriptions (workspace_id, plan_id, current_period_end) VALUES ($1, $2, $3) RETURNING id', [user.workspace_id, plan.id, end]);
     const key = newLicenseKey();
     const lic = await q.query(

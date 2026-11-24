@@ -3,6 +3,8 @@ import { bodyLimit } from 'hono/body-limit';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import type { AiTask, DeviceInfo, ProviderName, Range } from '../../src/lib/types.ts';
 import * as gateway from './ai/gateway.ts';
+import * as accounts from './auth/accounts.ts';
+import { need, needFeature } from './auth/accounts.ts';
 import type { Ctx } from './context.ts';
 import { badRequest, HttpError, licenseRequired } from './errors.ts';
 import * as inbound from './inbound.ts';
@@ -11,6 +13,7 @@ import * as license from './license/service.ts';
 import type { Auth, Client } from './license/service.ts';
 import { syncNow } from './sync/index.ts';
 import { publishPost } from './sync/linkedin.ts';
+import * as backups from './workspace/backups.ts';
 import { applyChange } from './workspace/changes.ts';
 import { importLeadsFor } from './workspace/leads.ts';
 import { loadLeads, loadMetrics, loadSnapshot, PROVIDERS } from './workspace/snapshot.ts';
@@ -48,10 +51,10 @@ export function createApp(ctx: Ctx) {
   const clientOf = (c: Context, body: Record<string, unknown>): Client => {
     const d = body.device as Partial<DeviceInfo> | undefined;
     if (!d || typeof d !== 'object') throw badRequest('Device information is missing.');
-    return { ...identity(c), device: { id: String(d.id ?? ''), name: String(d.name ?? ''), os: String(d.os ?? ''), platform: (d.platform ?? 'web') as DeviceInfo['platform'], appVersion: String(d.appVersion ?? '') } };
+    return { ...identity(c), device: { id: String(d.id ?? ''), name: String(d.name ?? ''), os: String(d.os ?? ''), platform: (d.platform ?? 'web') as DeviceInfo['platform'], appVersion: String(d.appVersion ?? ''), timeZone: typeof d.timeZone === 'string' ? d.timeZone : undefined } };
   };
   /** Browsers get httpOnly cookies and never see the token; native apps get it once, for the OS keystore. */
-  const deliver = (c: Context, r: license.ActivateResult | license.ConfirmResult) => {
+  const deliver = (c: Context, r: license.ActivateResult | license.ConfirmResult | accounts.SignInOutcome) => {
     if (!r.ok) return c.json(r);
     const { sessionToken, deviceId, native, ...body } = r;
     if (native) return c.json({ ...body, sessionToken });
@@ -83,7 +86,11 @@ export function createApp(ctx: Ctx) {
     c.header('Cache-Control', 'no-store');
     c.header('X-Content-Type-Options', 'nosniff');
   });
-  app.use('*', bodyLimit({ maxSize: 1024 * 1024, onError: (c) => c.json({ code: 'too_large', message: 'Request too large.' }, 413) }));
+  // A backup file being restored may be large; everything else is small.
+  const tooLarge = (c: Context) => c.json({ code: 'too_large', message: 'Request too large.' }, 413);
+  const small = bodyLimit({ maxSize: 1024 * 1024, onError: tooLarge });
+  const large = bodyLimit({ maxSize: 64 * 1024 * 1024, onError: tooLarge });
+  app.use('*', (c, next) => (c.req.path === '/v1/backups/restore' ? large(c, next) : small(c, next)));
 
   app.onError((e, c) => {
     if (e instanceof HttpError) return c.json({ code: e.code, message: e.message }, e.status as 400);
@@ -105,8 +112,15 @@ export function createApp(ctx: Ctx) {
   });
   app.post('/v1/license/transfer/confirm', async (c) => {
     const b = await json(c);
-    return deliver(c, await license.confirmTransfer(ctx, String(b.key ?? ''), String(b.code ?? ''), clientOf(c, b)));
+    return deliver(c, await license.confirmTransfer(ctx, String(b.key ?? ''), String(b.code ?? ''), clientOf(c, b), typeof b.replaceDeviceId === 'string' ? b.replaceDeviceId : undefined));
   });
+
+  // ── accounts (no session required) ─────────────────────────────────────
+  app.post('/v1/auth/sign-in', async (c) => { const b = await json(c); return deliver(c, await accounts.signIn(ctx, b, clientOf(c, b))); });
+  app.post('/v1/auth/password/forgot', async (c) => { await accounts.forgotPassword(ctx, (await json(c)).email, ip(c)); return c.body(null, 204); });
+  app.post('/v1/auth/password/reset', async (c) => { await accounts.resetPassword(ctx, await json(c), ip(c)); return c.body(null, 204); });
+  app.post('/v1/auth/invite/info', async (c) => c.json(await accounts.invitationInfo(ctx, String((await json(c)).token ?? ''))));
+  app.post('/v1/auth/invite/accept', async (c) => { const b = await json(c); return deliver(c, await accounts.acceptInvitation(ctx, b, clientOf(c, b))); });
 
   // The OAuth provider redirects the browser here; the single-use state identifies the workspace.
   app.get('/v1/integrations/:id/callback', async (c) =>
@@ -127,8 +141,29 @@ export function createApp(ctx: Ctx) {
     const auth = await license.authenticate(ctx, identity(c));
     if (!auth) throw licenseRequired();
     c.set('auth', auth);
+    const path = c.req.path;
+    const own = path.startsWith('/v1/auth/') || path === '/v1/license/deactivate';
+    // A seat without a signed-in member can only sign in (or give the seat back).
+    if (!auth.signedIn && !own) throw new HttpError(401, 'sign_in_required', 'Sign in to continue.');
+    if (auth.mfaSetupRequired && !own) throw new HttpError(403, 'mfa_setup_required', 'This workspace requires two-step sign-in. Set it up to continue.');
+    if (auth.role === 'viewer' && c.req.method !== 'GET' && !own && path !== '/v1/workspaces/switch') throw accounts.forbidden('Your role is viewer: you can look, but not change anything.');
     await next();
   });
+
+  // ── the signed-in account ──────────────────────────────────────────────
+  app.post('/v1/auth/sign-out', async (c) => { await accounts.signOut(ctx, c.get('auth')); return c.body(null, 204); });
+  app.post('/v1/auth/password', async (c) => { await accounts.setPassword(ctx, c.get('auth'), await json(c)); return c.body(null, 204); });
+  app.post('/v1/auth/mfa/setup', async (c) => c.json(await accounts.mfaSetup(ctx, c.get('auth'))));
+  app.post('/v1/auth/mfa/enable', async (c) => c.json(await accounts.mfaEnable(ctx, c.get('auth'), (await json(c)).code)));
+  app.post('/v1/auth/mfa/disable', async (c) => { await accounts.mfaDisable(ctx, c.get('auth'), await json(c)); return c.body(null, 204); });
+
+  app.post('/v1/team/invitations', async (c) => c.json(await accounts.invite(ctx, c.get('auth'), await json(c))));
+  app.delete('/v1/team/invitations/:id', async (c) => { await accounts.cancelInvitation(ctx, c.get('auth'), c.req.param('id')); return c.body(null, 204); });
+  app.post('/v1/team/members/:id/role', async (c) => { await accounts.setRole(ctx, c.get('auth'), c.req.param('id'), (await json(c)).role); return c.body(null, 204); });
+  app.delete('/v1/team/members/:id', async (c) => { await accounts.removeMember(ctx, c.get('auth'), c.req.param('id')); return c.body(null, 204); });
+
+  app.post('/v1/workspaces', async (c) => c.json(await accounts.createWorkspace(ctx, c.get('auth'), (await json(c)).name)));
+  app.post('/v1/workspaces/switch', async (c) => { await accounts.switchWorkspace(ctx, c.get('auth'), (await json(c)).id); return c.body(null, 204); });
 
   app.post('/v1/license/deactivate', async (c) => {
     await license.deactivate(ctx, c.get('auth'));
@@ -161,6 +196,7 @@ export function createApp(ctx: Ctx) {
   app.post('/v1/ai/posts/generate', async (c) => c.json(await gateway.generatePost(ctx, c.get('auth'), await json(c))));
   app.post('/v1/ai/leads/:id/draft', async (c) => c.json(await gateway.draftMessage(ctx, c.get('auth'), c.req.param('id'))));
   app.post('/v1/ai/providers/verify', async (c) => {
+    need(c.get('auth'), 'admin', 'change AI provider keys');
     const b = await json(c);
     if (!PROVIDERS.includes(b.name as ProviderName)) throw badRequest('Unknown provider.');
     return c.json({ verified: await gateway.verifyKey(ctx, c.get('auth'), b.name as ProviderName, String(b.key ?? '')) });
@@ -169,23 +205,31 @@ export function createApp(ctx: Ctx) {
 
   app.post('/v1/integrations/:id/test', async (c) => c.json(await integrations.test(ctx, c.get('auth'), c.req.param('id'))));
   app.post('/v1/integrations/:id/connect', async (c) => {
+    need(c.get('auth'), 'admin', 'connect integrations');
+    // AI provider keys are needed on every plan; the other integrations come with Professional.
+    if (!['oa', 'ge', 'cl', 'or'].includes(c.req.param('id'))) needFeature(c.get('auth'), 'integrations', 'Connecting integrations');
     const b = await c.req.json().catch(() => ({}));
     return c.json(await integrations.connect(ctx, c.get('auth'), c.req.param('id'), b?.fields && typeof b.fields === 'object' ? b.fields : b?.apiKey));
   });
   app.post('/v1/integrations/:id/sync', async (c) => c.json(await syncNow(ctx, c.get('auth').workspaceId, c.req.param('id'))));
   app.post('/v1/posts/:id/publish', async (c) => c.json(await publishPost(ctx, c.get('auth').workspaceId, c.req.param('id'))));
-  app.delete('/v1/integrations/:id', async (c) => { await integrations.disconnect(ctx, c.get('auth'), c.req.param('id')); return c.body(null, 204); });
+  app.delete('/v1/integrations/:id', async (c) => { need(c.get('auth'), 'admin', 'disconnect integrations'); await integrations.disconnect(ctx, c.get('auth'), c.req.param('id')); return c.body(null, 204); });
 
-  app.post('/v1/backups', async (c) => {
+  app.post('/v1/backups', async (c) => { need(c.get('auth'), 'admin', 'back up the workspace'); return c.json({ completedAt: await backups.createBackup(ctx, c.get('auth').workspaceId) }); });
+  app.get('/v1/backups', async (c) => { need(c.get('auth'), 'admin', 'see backups'); return c.json(await backups.listBackups(ctx, c.get('auth').workspaceId)); });
+  app.get('/v1/backups/:id', async (c) => { need(c.get('auth'), 'admin', 'download a backup'); return c.json(await backups.readBackup(ctx, c.get('auth').workspaceId, c.req.param('id'))); });
+  // Restoring replaces the workspace's content, from a stored backup or from a downloaded file.
+  app.post('/v1/backups/restore', async (c) => { need(c.get('auth'), 'admin', 'restore a backup'); return c.json(await backups.restore(ctx, c.get('auth').workspaceId, (await json(c)).backup)); });
+  app.post('/v1/backups/:id/restore', async (c) => {
     const auth = c.get('auth');
-    const snapshot = await loadSnapshot(ctx, auth);
-    const r = await ctx.db.query('INSERT INTO backups (workspace_id, snapshot, created_at) VALUES ($1, $2, $3) RETURNING created_at', [auth.workspaceId, JSON.stringify(snapshot), ctx.now()]);
-    return c.json({ completedAt: new Date(r.rows[0].created_at).toISOString() });
+    need(auth, 'admin', 'restore a backup');
+    return c.json(await backups.restore(ctx, auth.workspaceId, await backups.readBackup(ctx, auth.workspaceId, c.req.param('id'))));
   });
 
   app.delete('/v1/sessions/:id', async (c) => {
     const auth = c.get('auth');
     const id = c.req.param('id');
+    need(auth, 'admin', 'sign other devices out');
     if (id === auth.sessionId) throw badRequest('To sign this device out, deactivate it in Settings → License.');
     await ctx.db.query('UPDATE sessions SET revoked_at = $3 WHERE id::text = $1 AND workspace_id = $2 AND revoked_at IS NULL', [id, auth.workspaceId, ctx.now()]);
     return c.body(null, 204);

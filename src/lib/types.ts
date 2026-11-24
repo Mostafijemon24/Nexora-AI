@@ -14,6 +14,8 @@ export interface DeviceInfo {
   os: string;
   platform: Platform;
   appVersion: string;
+  /** IANA time zone of the device, e.g. "Asia/Dhaka". Shown as the rough location of a session. */
+  timeZone?: string;
 }
 
 /** Where a lead is in the pipeline. `lost` leaves the funnel; the other four are its steps, in order. */
@@ -211,12 +213,23 @@ export interface ProviderUsage {
 }
 export interface AiUsage { postsGenerated: number; tokensThisMonth: number; costThisMonthUsd: number; byProvider?: ProviderUsage[] }
 
-export interface WorkspacePlan { name: string; hosting: string }
+export interface WorkspacePlan {
+  name: string;
+  hosting: string;
+  /** What the plan includes beyond the base product: workflows, integrations, desktop, team, workspaces… */
+  features?: string[];
+}
 
 /** Everything the server owns for one workspace, as loaded at start and cached for offline use. */
 export interface WorkspaceSnapshot {
   plan: WorkspacePlan;
   profile: Profile;
+  /** The signed-in person. Absent without a server, where there are no accounts. */
+  me?: Me;
+  /** Members and open invitations. Present for owners and admins. */
+  team?: { members: Member[]; invitations: Invitation[] };
+  /** The workspaces of this account the person can open. */
+  workspaces?: WorkspaceRef[];
   leads: Lead[];
   campaigns: Campaign[];
   icp: Icp;
@@ -264,16 +277,53 @@ export interface LicenseState {
 }
 export interface LicenseEvent { text: string; at: string }
 
+/** A device holding one of a license's seats. */
+export interface SeatDevice { id: string; name: string; os: string; activatedAt: string }
+
 export type ActivationFailure =
   | { code: 'invalid' }
   | { code: 'expired'; expiredOn?: string }
   | { code: 'revoked' }
-  | { code: 'in_use'; deviceName?: string; deviceOs?: string; activatedAt?: string }
+  /** Every seat is taken. `devices` lists them when the license has more than one seat, so one can be chosen to give up its seat. */
+  | { code: 'in_use'; deviceName?: string; deviceOs?: string; activatedAt?: string; devices?: SeatDevice[] }
+  /** The plan does not include this kind of device (the desktop app is part of Professional and above). */
+  | { code: 'not_included'; plan?: string }
   | { code: 'unavailable' };
 
 export type ActivationResult =
-  | { ok: true; license: LicenseState; entitlementToken: string; /** Native only: kept in the OS secure store. */ sessionToken?: string }
+  | {
+    ok: true; license: LicenseState; entitlementToken: string;
+    /** Native only: kept in the OS secure store. */
+    sessionToken?: string;
+    /** The account has sign-in switched on: the device has its seat, and a member must now sign in. */
+    signInRequired?: boolean;
+  }
   | ({ ok: false } & ActivationFailure);
+
+// ── accounts ─────────────────────────────────────────────────────────────
+export type Role = 'owner' | 'admin' | 'member' | 'viewer';
+export const ROLE_LABEL: Record<Role, string> = { owner: 'Owner', admin: 'Admin', member: 'Member', viewer: 'Viewer' };
+export const ROLE_CAN: Record<Role, string> = {
+  owner: 'Everything, including the license and other workspaces.',
+  admin: 'Everything in this workspace: team, integrations, settings and backups.',
+  member: 'Works with leads, posts, conversations and workflows.',
+  viewer: 'Can look, but not change anything.',
+};
+/** Who is using the app in this session. */
+export interface Me { id: string; name: string; email: string; role: Role; hasPassword: boolean; mfa: boolean }
+export interface Member { id: string; name: string; email: string; role: Role; mfa: boolean; hasPassword: boolean }
+export interface Invitation { id: string; email: string; role: Role; expiresAt: string }
+export interface WorkspaceRef { id: string; name: string; current: boolean; role: Role }
+
+export type SignInFailure =
+  | { code: 'bad_credentials' }
+  /** The account uses two-step sign-in: send the 6-digit code (or a recovery code) as well. */
+  | { code: 'mfa_required' }
+  | { code: 'bad_code' }
+  /** The account is not in any workspace with an active license. */
+  | { code: 'no_workspace' };
+export type SignInResult = ActivationResult | ({ ok: false } & SignInFailure);
+export interface MfaSetup { secret: string; uri: string }
 
 // ── sync ─────────────────────────────────────────────────────────────────
 /** One write. `id` is the idempotency key, so replaying the offline queue cannot duplicate it. */

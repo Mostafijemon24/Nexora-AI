@@ -101,17 +101,32 @@ describe('activation', () => {
     expect((await c.activate(lic.key)).body.code).toBe('in_use');
   });
 
-  it('does not accept a copied device id as proof of being that device', async () => {
+  it('lets an install that lost its session back in with the key, and never runs two sessions on one seat', async () => {
     const lic = await h.license();
     const real = new Device(h, 'native', 'REAL');
     await real.activate(lic.key);
-    const clone = new Device(h, 'native', 'CLONE');
-    clone.info.id = real.info.id; // attacker knows the key and the device id, but holds no session
-    expect((await clone.activate(lic.key)).body.code).toBe('in_use');
-    expect((await clone.get('/v1/workspace')).status).toBe(401);
-    // The real device, which holds its session, re-activates idempotently.
-    expect((await real.activate(lic.key)).body.ok).toBe(true);
+    // The install lost its saved session but still has its registration id, which it keeps in the
+    // OS secure store and which is never shown or sent to anyone but this server.
+    const again = new Device(h, 'native', 'REAL');
+    again.info.id = real.info.id;
+    expect((await again.activate(lic.key)).body.ok).toBe(true);
+    expect((await again.get('/v1/workspace')).status).toBe(200);
     expect(await activeCount(lic.licenseId)).toBe(1);
+    // The earlier session ended: one seat never carries two sessions.
+    expect((await real.get('/v1/workspace')).status).toBe(401);
+    // Another install, which knows the key but not that id, is still refused.
+    const other = new Device(h, 'native', 'OTHER');
+    expect((await other.activate(lic.key)).body.code).toBe('in_use');
+    expect((await other.get('/v1/workspace')).status).toBe(401);
+    // A browser gets its seat back the same way: by the device cookie only this server issued it.
+    const lic2 = await h.license();
+    const web = new Device(h, 'web', 'Chrome');
+    await web.activate(lic2.key);
+    web.cookies.delete('nxr_session');
+    expect((await web.get('/v1/workspace')).status).toBe(401);
+    expect((await web.activate(lic2.key)).body.ok).toBe(true);
+    expect((await web.get('/v1/workspace')).status).toBe(200);
+    expect(await activeCount(lic2.licenseId)).toBe(1);
   });
 
   it('rate-limits repeated attempts', async () => {

@@ -12,6 +12,7 @@ import type { Auth } from '../license/service.ts';
 /** Who a request is for. Background work (a workflow run) has no license to record usage against. */
 export type AiScope = Pick<Auth, 'workspaceId'> & { licenseId: string | null };
 import { loadConversations, loadLeads } from '../workspace/snapshot.ts';
+import { costUsd } from './pricing.ts';
 import { allProviders, openRouterModels, ProviderError, type ChatMessage, type Completion } from './providers.ts';
 
 type Kind = 'chat' | 'post' | 'draft';
@@ -74,7 +75,8 @@ async function run(ctx: Ctx, auth: AiScope, task: AiTask, kind: Kind, system: st
 
   const record = (c: Completion) => ctx.db.query(
     'INSERT INTO usage_records (workspace_id, license_id, kind, provider, model, input_tokens, output_tokens, cost_usd, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
-    [auth.workspaceId, auth.licenseId, kind, providerName, c.model, c.inputTokens, c.outputTokens, c.costUsd, ctx.now()]);
+    // The provider's own figure when it reports one; otherwise the tokens used at the model's listed price.
+    [auth.workspaceId, auth.licenseId, kind, providerName, c.model, c.inputTokens, c.outputTokens, c.costUsd ?? costUsd(ctx.config, c.model, c.inputTokens, c.outputTokens), ctx.now()]);
 
   if (providerName !== 'OpenRouter') {
     const model = providerName === 'OpenAI' ? ctx.config.models.openai : providerName === 'Google Gemini' ? ctx.config.models.gemini : ctx.config.models.anthropic;

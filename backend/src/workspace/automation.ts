@@ -43,12 +43,22 @@ function hostFor(ctx: Ctx, scope: Scope): WorkflowHost {
   };
 }
 
+/** Whether a license covering the workspace has a plan that includes workflows. */
+async function workflowsIncluded(ctx: Ctx, workspaceId: string): Promise<boolean> {
+  const r = await ctx.db.query(
+    `SELECT 1 FROM licenses l JOIN subscriptions s ON s.id = l.subscription_id JOIN subscription_plans p ON p.id = s.plan_id
+     WHERE l.status = 'active' AND l.expires_at > $2 AND p.features ? 'workflows'
+       AND (l.workspace_id = $1 OR l.owner_user_id = (SELECT owner_user_id FROM workspaces WHERE id = $1)) LIMIT 1`, [workspaceId, ctx.now()]);
+  return Boolean(r.rowCount);
+}
+
 function dispatcherFor(ctx: Ctx, scope: Scope): Dispatcher {
   const w = scope.workspaceId;
   return {
     host: hostFor(ctx, scope),
     workflows: () => store.loadWorkflows(ctx.db, w),
     mayRun: async () => {
+      if (!(await workflowsIncluded(ctx, w))) return false;
       const lim = (await ctx.db.query('SELECT automation_daily_run_limit AS lim FROM workspaces WHERE id = $1', [w])).rows[0]?.lim ?? 0;
       const n = (await ctx.db.query('SELECT count(*)::int AS n FROM runs WHERE workspace_id = $1 AND at >= $2 AND NOT test', [w, new Date(ctx.now().getTime() - 86_400_000)])).rows[0].n;
       return n < lim;

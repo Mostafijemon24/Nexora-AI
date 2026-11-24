@@ -4,6 +4,7 @@ import type {
 import type { Ctx } from '../context.ts';
 import type { Q } from '../db.ts';
 import { notFound } from '../errors.ts';
+import { listWorkspaces, loadTeam } from '../auth/accounts.ts';
 import { CATALOG } from '../integrations.ts';
 import type { Auth } from '../license/service.ts';
 import { loadCampaigns, loadConversations, loadLeads, loadRuns, loadTasks, loadWorkflows } from './store.ts';
@@ -12,6 +13,17 @@ export { loadConversations, loadLeads };
 
 export const PROVIDERS: ProviderName[] = ['OpenAI', 'Google Gemini', 'Anthropic Claude', 'OpenRouter'];
 const iso = (d: Date | string) => new Date(d).toISOString();
+
+/**
+ * Roughly where a session is: the city of the device's time zone and the network address the
+ * server saw, with its last part hidden. Neither is exact; together they are enough to notice a
+ * session that is not yours.
+ */
+function place(zone: string | null, ip: string | null): string {
+  const city = zone && zone.includes('/') ? zone.split('/').at(-1)!.replace(/_/g, ' ') : '';
+  const masked = !ip ? '' : ip.includes(':') ? `${ip.split(':').slice(0, 3).join(':')}:…` : ip.replace(/\.\d+$/, '.•');
+  return [city, masked].filter(Boolean).join(' · ');
+}
 
 function ago(then: Date, now: Date): string {
   const s = Math.max(0, Math.round((now.getTime() - then.getTime()) / 1000));
@@ -45,13 +57,14 @@ export async function loadSnapshot(ctx: Ctx, auth: Auth, q: Q = ctx.db): Promise
   if (!ws) throw notFound('Workspace not found.');
   const one = async (sql: string, params: unknown[] = [w]) => (await q.query(sql, params)).rows;
 
-  const [user] = await one('SELECT name, email FROM users WHERE id = $1', [auth.userId]);
+  const [user] = await one('SELECT name, email, totp_enabled, (password_hash IS NOT NULL) AS has_password FROM users WHERE id = $1', [auth.userId]);
   const [plan] = await one(
     `SELECT p.name FROM licenses l JOIN subscriptions s ON s.id = l.subscription_id JOIN subscription_plans p ON p.id = s.plan_id WHERE l.id = $1`, [auth.licenseId]);
   const sessions = await one(
-    `SELECT s.id, s.last_seen_at, d.name, d.os FROM sessions s JOIN license_devices d ON d.id = s.device_id
-     JOIN license_activations a ON a.id = s.activation_id
+    `SELECT s.id, s.last_seen_at, s.time_zone, s.ip, d.name, d.os, u.name AS user_name FROM sessions s JOIN license_devices d ON d.id = s.device_id
+     JOIN license_activations a ON a.id = s.activation_id JOIN users u ON u.id = s.user_id
      WHERE s.workspace_id = $1 AND s.revoked_at IS NULL AND a.deactivated_at IS NULL ORDER BY (s.id = $2) DESC, s.last_seen_at DESC`, [w, auth.sessionId]);
+  const admin = auth.role === 'owner' || auth.role === 'admin';
   const creds = await one('SELECT provider, verified FROM provider_credentials WHERE workspace_id = $1');
   const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
   const [usage] = await one(
@@ -59,11 +72,18 @@ export async function loadSnapshot(ctx: Ctx, auth: Auth, q: Q = ctx.db): Promise
             coalesce(sum(input_tokens + output_tokens) FILTER (WHERE created_at >= $2), 0)::int AS tokens,
             coalesce(sum(cost_usd) FILTER (WHERE created_at >= $2), 0)::float AS cost
      FROM usage_records WHERE workspace_id = $1`, [w, monthStart]);
+  const byProvider = await one(
+    `SELECT provider, count(*)::int AS requests, coalesce(sum(input_tokens + output_tokens), 0)::int AS tokens, coalesce(sum(cost_usd), 0)::float AS cost,
+            bool_and(cost_usd IS NOT NULL) AS priced
+     FROM usage_records WHERE workspace_id = $1 AND created_at >= $2 GROUP BY provider ORDER BY provider`, [w, monthStart]);
   const [backup] = await one('SELECT created_at FROM backups WHERE workspace_id = $1 ORDER BY created_at DESC LIMIT 1');
 
   return {
-    plan: { name: plan?.name ?? '', hosting: 'Hybrid hosting' },
+    plan: { name: plan?.name ?? '', hosting: 'Hybrid hosting', features: auth.features },
     profile: { name: user.name, email: user.email, workspace: ws.name },
+    me: { id: auth.userId, name: user.name, email: user.email, role: auth.role, hasPassword: user.has_password, mfa: user.totp_enabled },
+    ...(admin ? { team: await loadTeam(q, w, now) } : {}),
+    workspaces: await listWorkspaces(q, auth),
     leads: await loadLeads(q, w),
     campaigns: await loadCampaigns(q, w),
     icp: ws.icp,
@@ -84,10 +104,14 @@ export async function loadSnapshot(ctx: Ctx, auth: Auth, q: Q = ctx.db): Promise
     sessions: sessions.map((s) => ({
       id: s.id, current: s.id === auth.sessionId,
       device: s.id === auth.sessionId ? `${s.name} · this device` : `${s.name} · ${s.os}`,
-      meta: s.id === auth.sessionId ? 'active now' : ago(new Date(s.last_seen_at), now),
+      meta: [s.id === auth.sessionId ? 'active now' : ago(new Date(s.last_seen_at), now), place(s.time_zone, s.ip), sessions.some((x) => x.user_name !== s.user_name) ? s.user_name : ''].filter(Boolean).join(' · '),
     })),
-    sync: { ...(ws.sync as Omit<SyncSettings, 'lastBackupAt'>), lastBackupAt: backup ? iso(backup.created_at) : '' },
-    aiUsage: { postsGenerated: usage.posts, tokensThisMonth: usage.tokens, costThisMonthUsd: usage.cost },
+    // The region is where this server runs, as its operator set it; it is not something a workspace can choose.
+    sync: { ...(ws.sync as Omit<SyncSettings, 'lastBackupAt'>), region: ctx.config.env.REGION?.trim().slice(0, 60) || 'Not stated by this server', lastBackupAt: backup ? iso(backup.created_at) : '' },
+    aiUsage: {
+      postsGenerated: usage.posts, tokensThisMonth: usage.tokens, costThisMonthUsd: usage.cost,
+      byProvider: byProvider.map((p) => ({ provider: p.provider, requests: p.requests, tokens: p.tokens, costUsd: p.cost, priced: p.priced })),
+    },
     brandVoice: ws.brand_voice,
     autoPublish: ws.auto_publish,
     automationDailyRunLimit: ws.automation_daily_run_limit,

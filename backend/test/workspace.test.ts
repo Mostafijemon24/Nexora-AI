@@ -30,11 +30,13 @@ describe('snapshot', () => {
   it('returns the workspace without any secret', async () => {
     const s = await snap(a);
     expect(s.profile).toEqual({ name: 'Rafiq Hasan', email: 'a@example.com', workspace: 'Northwind Growth' });
-    expect(s.plan).toEqual({ name: 'Professional', hosting: 'Hybrid hosting' });
+    expect(s.plan).toEqual({ name: 'Professional', hosting: 'Hybrid hosting', features: ['workflows', 'integrations', 'desktop'] });
+    expect(s.me).toEqual({ id: expect.any(String), name: 'Rafiq Hasan', email: 'a@example.com', role: 'owner', hasPassword: false, mfa: false });
     expect(s.leads).toHaveLength(6);
     expect(s.posts.map((p: any) => p.status).sort()).toEqual(['Draft', 'In review', 'Published', 'Scheduled']);
     expect(s.workflows[0]).toMatchObject({ name: 'Score and draft for new leads', on: true });
-    expect(s.sessions).toEqual([{ id: expect.any(String), current: true, device: 'A-PC · this device', meta: 'active now' }]);
+    // Where the session is: the network address the server saw, with its last part hidden.
+    expect(s.sessions).toEqual([{ id: expect.any(String), current: true, device: 'A-PC · this device', meta: expect.stringMatching(/^active now · 10\.\d+\.\d+\.•$/) }]);
     expect(s.integrations).toHaveLength(13);
     expect(s.providers.every((p: any) => p.verified === false)).toBe(true);
     // Integration entries describe the fields a person fills in (some are labelled "secret"); no value is ever included.

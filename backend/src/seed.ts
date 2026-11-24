@@ -10,7 +10,7 @@ export async function seedDemo(q: Q, w: string, now: Date): Promise<void> {
   const at = (dayOffset: number, h: number, m: number) => new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + dayOffset, h, m)).toISOString();
   const day = (offset: number) => at(offset, 0, 0).slice(0, 10);
 
-  await q.query(`UPDATE workspaces SET icp = $2, routing = $3, mfa = true WHERE id = $1`, [w,
+  await q.query(`UPDATE workspaces SET icp = $2, routing = $3 WHERE id = $1`, [w,
     JSON.stringify({ industry: 'Marketing', title: 'Founder, CEO', sizeMin: '10', sizeMax: '100', location: 'United States' }),
     JSON.stringify({ 'Content generation': 'Google Gemini', 'Lead research': 'OpenAI', 'Reply suggestions': 'OpenAI' })]);
 
