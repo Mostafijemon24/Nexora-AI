@@ -9,8 +9,8 @@ name: Deploy web app
 #   3. In the domain's DNS: a CNAME record  linkdin  →  mostafijemon24.github.io
 #      (remove any A or AAAA record that already exists for "linkdin").
 #
-# Without the repository variable VITE_API_URL the site runs without a server, like the installers:
-# each visitor's workspace stays in their own browser and nothing can be connected.
+# The site talks to the project's server at https://nexora-api.avonixai.com. To use another server,
+# set the repository variable VITE_API_URL (Settings → Secrets and variables → Actions → Variables).
 
 on:
   workflow_dispatch:
@@ -39,7 +39,7 @@ jobs:
       # A relative base keeps the build working at the custom domain and at <user>.github.io/<repo>/.
       - run: npx vite build --base=./
         env:
-          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          VITE_API_URL: ${{ vars.VITE_API_URL || 'https://nexora-api.avonixai.com' }}
       - uses: actions/upload-pages-artifact@v3
         with: { path: dist }
 

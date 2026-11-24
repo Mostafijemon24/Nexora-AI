@@ -3,10 +3,12 @@ name: Release installers
 # Builds the desktop installers for Windows, macOS and Linux and attaches them to a draft
 # GitHub release. Run it from the Actions tab, or push a tag like v1.0.0.
 #
-# Repository settings → Secrets and variables → Actions → Variables:
-#   VITE_API_URL               public URL of the backend, e.g. https://api.example.com
-#   NEXORA_LICENSE_PUBLIC_KEY  printed by `npm run cli -- keygen` in backend/
-# Without VITE_API_URL the installers run on built-in demo data and cannot activate real licenses.
+# The installers talk to the project's server at https://nexora-api.avonixai.com and carry its
+# public key, so a license key from that server activates them and they can start offline.
+# To build for another server, set both of these under Repository settings → Secrets and
+# variables → Actions → Variables:
+#   VITE_API_URL               public URL of the server, e.g. https://api.example.com
+#   NEXORA_LICENSE_PUBLIC_KEY  printed by the server installer (`node src/cli.ts pubkey`)
 #
 # macOS signing. With no secrets the app gets an ad-hoc signature (signingIdentity "-" in
 # src-tauri/tauri.conf.json). Without it, Apple Silicon Macs refuse a downloaded copy with
@@ -100,8 +102,8 @@ jobs:
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VITE_API_URL: ${{ vars.VITE_API_URL }}
-          NEXORA_LICENSE_PUBLIC_KEY: ${{ vars.NEXORA_LICENSE_PUBLIC_KEY }}
+          VITE_API_URL: ${{ vars.VITE_API_URL || 'https://nexora-api.avonixai.com' }}
+          NEXORA_LICENSE_PUBLIC_KEY: ${{ vars.NEXORA_LICENSE_PUBLIC_KEY || 'n1HAusJYZgk6uEaqFxI852u08yrR7IUkFlA/KXIexrM=' }}
         with:
           tagName: v__VERSION__
           releaseName: Nexora AI v__VERSION__
@@ -156,8 +158,8 @@ jobs:
       - name: Build and sign
         if: steps.keystore.outputs.present == 'true'
         env:
-          VITE_API_URL: ${{ vars.VITE_API_URL }}
-          NEXORA_LICENSE_PUBLIC_KEY: ${{ vars.NEXORA_LICENSE_PUBLIC_KEY }}
+          VITE_API_URL: ${{ vars.VITE_API_URL || 'https://nexora-api.avonixai.com' }}
+          NEXORA_LICENSE_PUBLIC_KEY: ${{ vars.NEXORA_LICENSE_PUBLIC_KEY || 'n1HAusJYZgk6uEaqFxI852u08yrR7IUkFlA/KXIexrM=' }}
           ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}

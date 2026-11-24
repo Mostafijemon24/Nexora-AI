@@ -9,11 +9,11 @@ decision that only the owner has.
 
 ## 1. To switch on — the code is ready, an account or key is needed (owner)
 
-- [ ] **Put the server on the VPS.** One command installs it; see [deploy/README.md](deploy/README.md).
-  *Needed:* a DNS record for the API (for example `api.avonixai.com`) pointing at the VPS, then the
-  install command run once as root. Afterwards set the repository variables `VITE_API_URL` and
-  `NEXORA_LICENSE_PUBLIC_KEY` so the web app and installers use the server. Until then the web app
-  and the installers run without a server, with data kept on each device.
+- [x] **The server is on the VPS** at `https://nexora-api.avonixai.com` (installed 24 November 2026,
+  behind the VPS's cPanel Apache; see [deploy/README.md](deploy/README.md)). The web app and the
+  installers are built for it. *Still to do by the owner:* open the app with the license key, put
+  the real name and email under Settings → My profile (the install used placeholder values), and
+  set a password under Settings → Security.
 - [ ] **Email delivery** for transfer codes, password resets and invitations.
   *Needed:* `SMTP_URL` in the server's `.env`. Without it these messages are written to the server
   log instead of being sent.

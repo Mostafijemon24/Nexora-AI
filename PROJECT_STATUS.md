@@ -70,6 +70,7 @@ was checked, including what has **not** been checked.
 | Android | debug APK built and run on an emulator in CI: UI loaded, the Keystore stored, returned and deleted a secret |
 | Server image | built in CI and started with PostgreSQL and Redis; health check, license creation |
 | Live web app | https://linkdin.avonixai.com loads over https, on desktop and phone widths |
+| Live server | https://nexora-api.avonixai.com: installed with `deploy/install.sh` on the VPS (AlmaLinux 9, cPanel Apache in front); health check over https, and the web app built for it reaches it from a browser at the site's address (a made-up license key is refused by the server) |
 
 What the server tests cover, beyond the earlier license tests: sign-in limits per account, reset
 codes (single use, five guesses), TOTP against the RFC 6238 vectors and replay refusal, each role's
@@ -89,17 +90,18 @@ the live service, because that needs the owner's accounts:
 - **Email**: sending through a real SMTP server and reading a real IMAP mailbox. The IMAP reader
   (`backend/src/mailbox.ts`) has never talked to a mail server.
 - **WhatsApp** Cloud API sending and its webhook.
-- **The VPS install script** has not been run on a real server; its parts (the image, the stack,
-  license creation) run in CI.
+- **The live server with a real license**: the install script ran on the VPS and the server
+  answers, but nobody has yet activated the app there with the real key, so activation, sign-in
+  and saving data on the live server are checked only on a test server so far.
 - **A real update** of an installed desktop app, the release workflow's update files, and the
   Android release build's upload. No real phone was used.
 - A desktop app pointed at a server by address (rather than built for it) was not tried on a real desktop.
 
 ## One-time steps for the owner
 
-1. **Server**: add a DNS A record for the API name, then run the install command in
-   [deploy/README.md](deploy/README.md). Add `VITE_API_URL` and `NEXORA_LICENSE_PUBLIC_KEY` as
-   repository variables and re-run *Deploy web app* and *Release installers*.
+1. **Server**: done. Open https://linkdin.avonixai.com, activate with the license key the
+   installer printed, then set your name and email (Settings → My profile) and a password
+   (Settings → Security).
 2. **Email**: put `SMTP_URL` and `MAIL_FROM` in `/opt/nexora/deploy/.env`, then run the installer again.
 3. **Automatic updates**: on your own computer run
    `npm run tauri signer generate -- -w ~/.tauri/nexora-updater.key`; add the `.pub` contents as

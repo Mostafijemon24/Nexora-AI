@@ -27,7 +27,9 @@ devices, one year). At the end it prints:
 
 ## Connect the app to the server
 
-In the GitHub repository, under *Settings → Secrets and variables → Actions → Variables*, add:
+The *Deploy web app* and *Release installers* workflows build for the project's own server,
+`https://nexora-api.avonixai.com`, and its public key. For a different server, add these in the
+GitHub repository under *Settings → Secrets and variables → Actions → Variables*:
 
 | Variable | Value |
 | --- | --- |
@@ -35,7 +37,7 @@ In the GitHub repository, under *Settings → Secrets and variables → Actions 
 | `NEXORA_LICENSE_PUBLIC_KEY` | the value the installer printed |
 
 Then run the **Deploy web app** and **Release installers** workflows. From then on the web app and
-the installers talk to your server, and the license key from the installer activates them.
+the installers talk to that server, and the license key from the installer activates them.
 
 An app that was built without a server address can also be pointed at the server by hand: on its
 first screen choose *Use a different server* and enter `https://api.example.com`. This works at
@@ -89,6 +91,43 @@ server {
 ```
 
 Then issue a certificate for it the way your other sites get theirs (for example `certbot --nginx`).
+
+### cPanel / WHM (Apache)
+
+1. In cPanel create the API name as a **subdomain** (Domains → Create a New Domain). This gives it
+   its Apache entries and a certificate from AutoSSL.
+2. As root, add two small include files for that domain only, then rebuild Apache's configuration.
+   Replace the three values in the first line (`U` is the cPanel account that owns the domain,
+   `P` the port the installer printed):
+
+```bash
+D=api.example.com; U=cpaneluser; P=8787
+B=/etc/apache2/conf.d/userdata
+mkdir -p $B/std/2_4/$U/$D $B/ssl/2_4/$U/$D
+cat > $B/ssl/2_4/$U/$D/nexora.conf <<EOF
+ProxyPreserveHost On
+ProxyTimeout 120
+<IfModule headers_module>
+  RequestHeader unset X-Forwarded-For early
+  RequestHeader set X-Forwarded-Proto "https"
+</IfModule>
+ProxyPass /.well-known/ !
+ProxyPass / http://127.0.0.1:$P/
+ProxyPassReverse / http://127.0.0.1:$P/
+EOF
+cat > $B/std/2_4/$U/$D/nexora.conf <<EOF
+RewriteEngine On
+RewriteCond %{REQUEST_URI} !^/\\.well-known/
+RewriteRule ^ https://$D%{REQUEST_URI} [R=301,L]
+EOF
+/usr/local/cpanel/scripts/rebuildhttpdconf && /usr/local/cpanel/scripts/restartsrv_httpd
+curl -s https://$D/healthz    # {"ok":true}
+```
+
+`/.well-known/` stays with Apache so AutoSSL can keep renewing the certificate. If the health
+check reports a certificate problem, run `/usr/local/cpanel/bin/autossl_check --user=$U` and try
+again after a few minutes. To undo, delete the two `nexora.conf` files and run the last two
+commands again. This is the setup the project's own server uses.
 
 ## Day-to-day
 
