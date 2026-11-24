@@ -1,0 +1,2 @@
+# Written by updater/enable.sh during a CI build; it carries that build's updater public key.
+/tauri.updater.conf.json

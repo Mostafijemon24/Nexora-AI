@@ -55,6 +55,7 @@ fn license_public_key() -> Option<[u8; 32]> {
 
 /// The key that update packages are verified against, baked in at build time. A build without
 /// it never looks for updates.
+#[cfg(desktop)]
 fn updater_public_key() -> Option<&'static str> {
     option_env!("NEXORA_UPDATER_PUBKEY").map(str::trim).filter(|k| !k.is_empty())
 }
@@ -100,24 +101,45 @@ fn os_label() -> String {
     }
 }
 
-#[cfg(mobile)]
+#[cfg(target_os = "android")]
 fn os_label() -> String {
-    "Android".to_string()
+    tauri_plugin_nexora_keystore::device().map(|d| d.os).unwrap_or_else(|_| "Android".to_string())
+}
+
+#[cfg(all(mobile, not(target_os = "android")))]
+fn os_label() -> String {
+    "Mobile".to_string()
+}
+
+/// The computer's network name; on a phone, its model.
+fn device_name() -> String {
+    #[cfg(target_os = "android")]
+    if let Ok(device) = tauri_plugin_nexora_keystore::device() {
+        if !device.name.is_empty() {
+            return device.name;
+        }
+    }
+    let host = gethostname::gethostname().to_string_lossy().trim().to_string();
+    if host.is_empty() || host == "localhost" { "This device".into() } else { host.to_uppercase() }
 }
 
 #[tauri::command]
 fn device_info(app: tauri::AppHandle, core: State<Core>) -> DeviceInfo {
-    UI_READY.store(true, Ordering::Relaxed);
+    let first_call = !UI_READY.swap(true, Ordering::Relaxed);
+    #[cfg(all(target_os = "android", debug_assertions))]
+    if first_call {
+        android_self_test(&app);
+    }
+    let _ = first_call;
     let platform = match std::env::consts::OS {
         "windows" => "windows",
         "macos" => "macos",
         "android" => "android",
         _ => "linux",
     };
-    let host = gethostname::gethostname().to_string_lossy().trim().to_string();
     DeviceInfo {
         id: core.device_id.clone(),
-        name: if host.is_empty() || host == "localhost" { "This device".into() } else { host.to_uppercase() },
+        name: device_name(),
         os: os_label(),
         platform,
         app_version: app.package_info().version.to_string(),
@@ -272,6 +294,38 @@ fn smoke_test(app: tauri::AppHandle) {
     });
 }
 
+/// Debug builds on Android record, once the UI has loaded, whether the Keystore stores, returns
+/// and deletes a value. CI reads the file back from an emulator; release builds do not contain this.
+#[cfg(all(target_os = "android", debug_assertions))]
+fn android_self_test(app: &tauri::AppHandle) {
+    const PROBE: &str = "self-test";
+    let keystore = || -> CmdResult<()> {
+        let value = uuid::Uuid::new_v4().to_string();
+        secure::set(PROBE, &value)?;
+        if secure::get(PROBE)?.as_deref() != Some(value.as_str()) {
+            return Err("The stored value did not read back.".into());
+        }
+        secure::delete(PROBE)?;
+        if secure::get(PROBE)?.is_some() {
+            return Err("The stored value was not deleted.".into());
+        }
+        if secure::get(DEVICE_ID)?.is_none() {
+            return Err("The device registration is not in the Keystore.".into());
+        }
+        Ok(())
+    };
+    let report = serde_json::json!({
+        "ui": true,
+        "keystore": keystore().map(|()| "ok".to_string()).unwrap_or_else(|e| e),
+        "device": device_name(),
+        "os": os_label(),
+        "deviceId": app.state::<Core>().device_id.clone(),
+    });
+    if let Ok(dir) = app.path().app_data_dir() {
+        let _ = std::fs::write(dir.join("self-test.json"), report.to_string());
+    }
+}
+
 /// Saves an export (CSV, backup) to the user's Downloads folder and returns where it went.
 #[tauri::command]
 fn save_file(app: tauri::AppHandle, name: String, contents: String) -> CmdResult<String> {
@@ -363,8 +417,11 @@ async fn update_install(app: tauri::AppHandle) -> CmdResult<()> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
-        .plugin(tauri_plugin_opener::init())
+    let builder = tauri::Builder::default().plugin(tauri_plugin_opener::init());
+    // Must be registered before `setup`, which reads the device registration from it.
+    #[cfg(target_os = "android")]
+    let builder = builder.plugin(tauri_plugin_nexora_keystore::init());
+    builder
         .setup(|app| {
             // Registered on every desktop build; it only ever runs when an updater key was baked in.
             #[cfg(desktop)]
