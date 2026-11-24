@@ -1,0 +1,54 @@
+name: Deploy web app
+
+# Builds the web app and publishes it with GitHub Pages at https://linkdin.avonixai.com.
+# Runs on every push to main, or from the Actions tab.
+#
+# One-time setup:
+#   1. Repository settings → Pages → Source: "GitHub Actions".
+#   2. Same page → Custom domain: linkdin.avonixai.com.
+#   3. In the domain's DNS: a CNAME record  linkdin  →  mostafijemon24.github.io
+#      (remove any A or AAAA record that already exists for "linkdin").
+#
+# Without the repository variable VITE_API_URL the site runs without a server, like the installers:
+# each visitor's workspace stays in their own browser and nothing can be connected.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      # A relative base keeps the build working at the custom domain and at <user>.github.io/<repo>/.
+      - run: npx vite build --base=./
+        env:
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: dist }
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
