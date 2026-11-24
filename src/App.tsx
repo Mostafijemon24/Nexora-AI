@@ -37,6 +37,7 @@ export function App() {
   const boot = useApp((s) => s.boot);
   const platform = useApp((s) => s.platform);
   const preview = useApp((s) => s.preview);
+  const compact = useApp((s) => s.compact);
   const screen = useApp((s) => s.screen);
   const bootError = useApp((s) => s.bootError);
 
@@ -71,7 +72,7 @@ export function App() {
   }, [boot, screen]);
 
   return (
-    <div className="app" data-plat={platform} data-preview={preview ? '' : undefined}>
+    <div className="app" data-plat={platform} data-preview={preview ? '' : undefined} data-compact={compact ? '' : undefined}>
       {preview && <PreviewChrome />}
       {boot === 'loading' && <Centered><span className="muted" role="status">Checking license…</span></Centered>}
       {boot === 'error' && (

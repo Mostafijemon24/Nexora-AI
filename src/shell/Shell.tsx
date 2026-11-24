@@ -105,7 +105,7 @@ export function Header() {
   const syncLabel = s.syncing ? 'Syncing…' : off ? `Offline · ${s.pending} pending` : native ? 'Synced with cloud' : 'Live';
   return (
     <header className="header">
-      {s.platform !== 'android' && (
+      {!s.compact && (
         <Button icon title="Toggle sidebar" aria-label="Toggle sidebar" onClick={() => s.setCollapsed(!s.collapsed)}>
           <PanelLeft size={16} strokeWidth={1.5} />
         </Button>
@@ -124,17 +124,17 @@ export function Header() {
 }
 
 export function Shell({ children }: { children: ReactNode }) {
-  const android = useApp((s) => s.platform === 'android');
+  const compact = useApp((s) => s.compact);
   return (
     <>
       <div className="app-body">
-        {!android && <Sidebar />}
+        {!compact && <Sidebar />}
         <div className="app-col">
           <Header />
           <main className="app-main">{children}</main>
         </div>
       </div>
-      {android && <BottomNav />}
+      {compact && <BottomNav />}
     </>
   );
 }

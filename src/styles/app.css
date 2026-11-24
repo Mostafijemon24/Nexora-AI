@@ -135,8 +135,8 @@ a:hover { color: var(--color-accent); }
 .start { align-items: start; }
 .span-2 { grid-column: span 2; min-width: 0; }
 .span-3 { grid-column: span 3; min-width: 0; }
-/* On Android (and any single-column width) every multi-column span collapses. */
-.app[data-plat='android'] .span-2, .app[data-plat='android'] .span-3 { grid-column: auto; }
+/* In the phone layout (and at any single-column width) every multi-column span collapses. */
+.app[data-compact] .span-2, .app[data-compact] .span-3 { grid-column: auto; }
 @media (max-width: 640px) { .span-2, .span-3 { grid-column: auto; } }
 
 .muted { color: var(--muted); }
@@ -222,7 +222,7 @@ button.card:hover { background: var(--tint); }
   from { opacity: 0; transform: translate(-50%, 6px); }
   to { opacity: 1; transform: translate(-50%, 0); }
 }
-.app[data-plat='android'] .toast { bottom: 72px; }
+.app[data-compact] .toast { bottom: 72px; }
 .dialog-backdrop { z-index: 50; }
 .dialog { background: var(--color-bg); }
 

@@ -30,6 +30,8 @@ export interface AppState {
   platform: Platform;
   /** True when a platform frame is being previewed in a browser (drawn window chrome is shown). */
   preview: boolean;
+  /** Phone layout: bottom navigation instead of the sidebar. On Android, and in any window too narrow for the sidebar. */
+  compact: boolean;
 
   theme: Theme;
   collapsed: boolean;
@@ -118,6 +120,8 @@ const pendingCount = async () => (await bridge.queueAll()).filter(isAction).leng
 
 const ALL_WIDGETS: Record<WidgetId, boolean> = { kpi: true, perf: true, funnel: true, tasks: true, ai: true, activity: true, health: true };
 const CACHE_KEY = 'workspace';
+/** Below this width the sidebar would take most of the window. */
+const NARROW = '(max-width: 720px)';
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 
 const prefersDark = () => typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches;
@@ -157,7 +161,7 @@ export const useApp = create<AppState>((set, get) => {
   };
 
   return {
-    boot: 'loading', bootError: '', backend: null, device: null, platform: 'web', preview: false,
+    boot: 'loading', bootError: '', backend: null, device: null, platform: 'web', preview: false, compact: false,
     theme: 'light', collapsed: false, widgets: ALL_WIDGETS,
     online: true, syncing: false, pending: 0,
     screen: 'dashboard', aiTab: 'scoring', csTab: 'gen', setTab: 'profile', range: '7d',
@@ -168,8 +172,11 @@ export const useApp = create<AppState>((set, get) => {
       const theme = read<Theme>(LS.theme, prefersDark() ? 'dark' : 'light');
       applyTheme(theme);
       const device = await bridge.deviceInfo();
+      const narrow = typeof matchMedia === 'function' ? matchMedia(NARROW) : null;
+      const compact = () => device.platform === 'android' || (narrow?.matches ?? false);
+      narrow?.addEventListener('change', () => set({ compact: compact() }));
       set({
-        backend, device, platform: device.platform, preview: previewPlatform() !== null,
+        backend, device, platform: device.platform, preview: previewPlatform() !== null, compact: compact(),
         theme, collapsed: read(LS.collapsed, false), widgets: { ...ALL_WIDGETS, ...read(LS.widgets, {}) },
         toured: read<ScreenId[]>(LS.toured, []),
         pending: await pendingCount(),

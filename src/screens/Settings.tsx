@@ -348,7 +348,7 @@ function AppearanceTab() {
     <>
       <div className="card-kicker">Appearance</div>
       <Field label="Theme"><Seg name="Theme" value={s.theme} options={[['light', 'Light'], ['dark', 'Dark']] as const} onChange={s.setTheme} /></Field>
-      {s.platform !== 'android' && (
+      {!s.compact && (
         <Field label="Sidebar">
           <Seg name="Sidebar" value={s.collapsed ? 'c' : 'e'} options={[['e', 'Expanded'], ['c', 'Collapsed']] as const} onChange={(v) => s.setCollapsed(v === 'c')} />
         </Field>
