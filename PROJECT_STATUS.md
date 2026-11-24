@@ -60,7 +60,7 @@ was checked, including what has **not** been checked.
 
 | Check | Result |
 | --- | --- |
-| Server tests (`backend`, `npm test`, real PostgreSQL 16) | 99 passed |
+| Server tests (`backend`, `npm test`, real PostgreSQL 16) | 100 passed |
 | App unit tests (`npm test`) | 34 passed |
 | Rust tests (`cargo test --workspace`) | pass, including the server-token contract test |
 | Browser, app without a server | 15 checks: leads, bulk actions, campaign, pipeline, building and test-running a workflow, a workflow running by itself, inbox, reports and export, data kept across reload, phone layout |
