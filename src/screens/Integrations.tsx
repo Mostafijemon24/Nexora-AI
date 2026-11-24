@@ -67,6 +67,9 @@ export function Integrations() {
   };
 
   const canConnect = s.backend!.canConnect;
+  /** AI provider keys are needed on every plan; the other integrations come with Professional. */
+  const included = (g: Integration) => g.cat === 'AI' || !ws.plan.features || ws.plan.features.includes('integrations');
+  const admin = !ws.me || ws.me.role === 'owner' || ws.me.role === 'admin';
   const connect = (g: Integration) => {
     if (s.needsNet('Connecting')) return;
     s.confirm({
@@ -143,6 +146,9 @@ export function Integrations() {
           </div>
         </Card>
       )}
+      {canConnect && ws.plan.features && !ws.plan.features.includes('integrations') && (
+        <Card kicker={`Your plan: ${ws.plan.name}`}><div className="hint13">Connecting a CRM, email, WhatsApp, a calendar or webhooks is part of the Professional plan. AI provider keys can be added on every plan.</div></Card>
+      )}
       <Seg name="Category" value={cat} options={CATS} onChange={setCat} wrap style={{ alignSelf: 'flex-start' }} />
       <div className="grid g240fill" data-tour="int-list">
         {ws.integrations.filter((g) => cat === 'All' || g.cat === cat).map((g) => (
@@ -159,10 +165,14 @@ export function Integrations() {
                 <>
                   {!g.hook && <Button disabled={testing === g.id} onClick={() => void test(g)}>{testing === g.id ? 'Testing…' : 'Test connection'}</Button>}
                   {SYNCABLE.includes(g.id) && <Button disabled={syncing === g.id} onClick={() => void sync(g)}>{syncing === g.id ? 'Syncing…' : 'Sync now'}</Button>}
-                  <Button variant="ghost" onClick={() => disconnect(g)}>Disconnect</Button>
+                  {admin && <Button variant="ghost" onClick={() => disconnect(g)}>Disconnect</Button>}
                 </>
               ) : (
-                <Button disabled={!canConnect} title={canConnect ? undefined : 'Needs a Nexora AI server'} onClick={() => connect(g)}>Connect</Button>
+                <Button
+                  disabled={!canConnect || !included(g) || !admin}
+                  title={!canConnect ? 'Needs a Nexora AI server' : !included(g) ? 'Part of the Professional plan' : !admin ? 'Only an owner or admin can connect integrations' : undefined}
+                  onClick={() => connect(g)}
+                >Connect</Button>
               )}
             </div>
           </Card>

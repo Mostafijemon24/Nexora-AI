@@ -42,7 +42,7 @@ const catalog = (connected: (id: string) => boolean = () => false): Integration[
 /** A new workspace: no leads, posts, conversations or workflows, nothing connected. */
 export function emptyWorkspace(): WorkspaceSnapshot {
   return {
-    plan: { name: 'Professional', hosting: 'Hybrid hosting' },
+    plan: { name: 'Professional', hosting: 'This device', features: ['workflows', 'integrations', 'desktop'] },
     profile: { name: '', email: '', workspace: 'My workspace' },
     leads: [],
     campaigns: [],
@@ -61,7 +61,7 @@ export function emptyWorkspace(): WorkspaceSnapshot {
     openRouter: { defaultModel: '', fallbackModel: '', monthlyBudgetUsd: '' },
     mfa: false,
     sessions: [{ id: 'this-device', device: 'This device', meta: 'Active now', current: true }],
-    sync: { region: 'Singapore', endpoint: '', offlineCache: true, conflict: 'ask', lastBackupAt: '' },
+    sync: { region: 'This device', endpoint: '', offlineCache: true, conflict: 'ask', lastBackupAt: '' },
     aiUsage: { postsGenerated: 0, tokensThisMonth: 0, costThisMonthUsd: 0 },
     brandVoice: 'plain, specific, no hype',
     automationDailyRunLimit: 500,
@@ -86,6 +86,9 @@ function storedWorkspace(): WorkspaceSnapshot {
 }
 
 const NO_SERVER = 'This build is not connected to a Nexora AI server.';
+const noServer = async (): Promise<never> => { throw new Error(NO_SERVER); };
+/** The parts of the workspace a backup file holds: what a person made, not connections or sessions. */
+const BACKUP_KEYS = ['leads', 'campaigns', 'prompts', 'posts', 'conversations', 'savedReplies', 'workflows', 'tasks', 'icp', 'brandVoice'] as const;
 const sampleRequested = (): boolean => typeof location !== 'undefined' && new URLSearchParams(location.search).has('sample');
 
 const bar = (label: string, value: number) => ({ label, value });
@@ -472,6 +475,13 @@ export function createDemoBackend(now: () => Date = () => new Date(), sample = s
         log(`Deactivated on ${devLabel(device)}`);
       },
     },
+    // Accounts, team members and other workspaces live on a server; there is none here.
+    auth: {
+      signIn: noServer, signOut: noServer, setPassword: noServer, forgotPassword: noServer, resetPassword: noServer,
+      mfaSetup: noServer, mfaEnable: noServer, mfaDisable: noServer, invitationInfo: noServer, acceptInvitation: noServer,
+    },
+    team: { invite: noServer, cancelInvitation: noServer, setRole: noServer, remove: noServer },
+    workspaces: { create: noServer, switchTo: noServer },
     workspace: {
       async metrics(range) {
         if (!sample) return workspaceMetrics(ws, range, now());
@@ -583,6 +593,30 @@ export function createDemoBackend(now: () => Date = () => new Date(), sample = s
         ws.sync.lastBackupAt = now().toISOString();
         store();
         return ws.sync.lastBackupAt;
+      },
+      // Without a server the only copy is on this device, so the one backup is the current state, saved as a file.
+      async backups() {
+        return [{ id: 'now', createdAt: now().toISOString(), automatic: false, sizeBytes: JSON.stringify(ws).length, leads: ws.leads.length }];
+      },
+      async downloadBackup() {
+        const data = Object.fromEntries(BACKUP_KEYS.map((k) => [k, ws[k]]));
+        return JSON.stringify({ format: 'nexora-backup', version: 2, exportedAt: now().toISOString(), workspace: ws.profile.workspace, ...data }, null, 2);
+      },
+      async restoreBackup(source) {
+        if (!('file' in source)) throw new Error('Choose a backup file to restore.');
+        let data: Partial<WorkspaceSnapshot>;
+        try { data = JSON.parse(source.file) as Partial<WorkspaceSnapshot>; } catch { throw new Error('This file is not a Nexora AI backup.'); }
+        const lists = ['leads', 'campaigns', 'prompts', 'posts', 'conversations', 'savedReplies', 'workflows', 'tasks'] as const;
+        if (!data || typeof data !== 'object' || !lists.some((k) => Array.isArray(data[k]))) throw new Error('This file is not a Nexora AI backup.');
+        for (const k of lists) (ws as unknown as Record<string, unknown>)[k] = Array.isArray(data[k]) ? data[k] : [];
+        ws.leads = ws.leads.filter((l) => l && typeof l.name === 'string' && typeof l.company === 'string').map((l) => newLead(l.id ?? crypto.randomUUID(), l.name, l.company, l.createdAt ?? now().toISOString(), l));
+        // Workflows come back switched off, as on the server: a person reviews them and switches them on.
+        ws.workflows = ws.workflows.filter((f) => f && Array.isArray(f.steps) && !workflowProblem(f.steps)).map((f) => ({ ...f, on: false }));
+        ws.runs = [];
+        if (data.icp) ws.icp = data.icp;
+        if (typeof data.brandVoice === 'string') ws.brandVoice = data.brandVoice;
+        ws.activity = [{ text: 'Workspace restored from a backup file. Workflows are switched off until you switch them on.', at: now().toISOString() }, ...ws.activity].slice(0, 6);
+        store();
       },
       async revokeSession(id) { ws.sessions = ws.sessions.filter((s) => s.id !== id); store(); },
     },

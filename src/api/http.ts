@@ -1,6 +1,6 @@
 import type { Backend } from './backend';
 import { BackendError } from './backend';
-import type { ActivationResult } from '../lib/types';
+import type { ActivationResult, SignInResult } from '../lib/types';
 
 export interface HttpOptions {
   /** Native: the session token from the OS secure store. Web returns null and relies on the httpOnly cookie. */
@@ -8,6 +8,8 @@ export interface HttpOptions {
   setToken: (token: string | null) => Promise<void>;
   /** Called when the server says this device has no active license any more. */
   onLicenseLost: () => void;
+  /** Called when the device has its seat but nobody is signed in on it, or two-step sign-in must be set up first. */
+  onAccountNeeded: (what: 'sign_in' | 'mfa_setup') => void;
 }
 
 /** Production backend: the Nexora AI API (backend/). */
@@ -41,6 +43,8 @@ export function createHttpBackend(baseUrl: string, opts: HttpOptions): Backend {
         code = j.code;
       } catch { /* non-JSON error body */ }
       if (res.status === 401 && code === 'license_required') opts.onLicenseLost();
+      if (res.status === 401 && code === 'sign_in_required') opts.onAccountNeeded('sign_in');
+      if (res.status === 403 && code === 'mfa_setup_required' && !path.startsWith('/v1/workspace/changes')) opts.onAccountNeeded('mfa_setup');
       throw new BackendError(message, res.status, code);
     }
     return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
@@ -50,10 +54,12 @@ export function createHttpBackend(baseUrl: string, opts: HttpOptions): Backend {
   const post = <T>(p: string, b?: unknown) => call<T>('POST', p, b ?? {});
 
   /** Keeps the session token a native activation returns; browsers receive a cookie instead. */
-  const keep = async <R extends ActivationResult | { ok: false; code: 'bad_code' }>(r: R): Promise<R> => {
+  const keep = async <R extends SignInResult | { ok: false; code: 'bad_code' }>(r: R): Promise<R> => {
     if (r.ok && r.sessionToken) await opts.setToken(r.sessionToken);
     return r;
   };
+  const del = (p: string) => call<void>('DELETE', p);
+  const enc = encodeURIComponent;
 
   return {
     demo: false,
@@ -62,9 +68,31 @@ export function createHttpBackend(baseUrl: string, opts: HttpOptions): Backend {
       status: (device) => post('/v1/license/status', { device }),
       activate: async (key, device) => keep(await post<ActivationResult>('/v1/license/activate', { key, device })),
       requestTransfer: (key, device) => post('/v1/license/transfer/request', { key, device }),
-      confirmTransfer: async (key, code, device) =>
-        keep(await post<ActivationResult | { ok: false; code: 'bad_code' }>('/v1/license/transfer/confirm', { key, code, device })),
+      confirmTransfer: async (key, code, device, replaceDeviceId) =>
+        keep(await post<ActivationResult | { ok: false; code: 'bad_code' }>('/v1/license/transfer/confirm', { key, code, device, replaceDeviceId })),
       deactivate: async () => { await post('/v1/license/deactivate'); await opts.setToken(null); },
+    },
+    auth: {
+      signIn: async (input, device) => keep(await post<SignInResult>('/v1/auth/sign-in', { ...input, device })),
+      signOut: () => post('/v1/auth/sign-out'),
+      setPassword: (password, current) => post('/v1/auth/password', { password, current }),
+      forgotPassword: (email) => post('/v1/auth/password/forgot', { email }),
+      resetPassword: (email, code, password) => post('/v1/auth/password/reset', { email, code, password }),
+      mfaSetup: () => post('/v1/auth/mfa/setup'),
+      mfaEnable: (code) => post('/v1/auth/mfa/enable', { code }),
+      mfaDisable: (password, code) => post('/v1/auth/mfa/disable', { password, code }),
+      invitationInfo: (token) => post('/v1/auth/invite/info', { token }),
+      acceptInvitation: async (input, device) => keep(await post<SignInResult>('/v1/auth/invite/accept', { ...input, device })),
+    },
+    team: {
+      invite: (email, role) => post('/v1/team/invitations', { email, role }),
+      cancelInvitation: (id) => del(`/v1/team/invitations/${enc(id)}`),
+      setRole: (userId, role) => post(`/v1/team/members/${enc(userId)}/role`, { role }),
+      remove: (userId) => del(`/v1/team/members/${enc(userId)}`),
+    },
+    workspaces: {
+      create: (name) => post('/v1/workspaces', { name }),
+      switchTo: (id) => post('/v1/workspaces/switch', { id }),
     },
     workspace: {
       load: () => get('/v1/workspace'),
@@ -98,6 +126,14 @@ export function createHttpBackend(baseUrl: string, opts: HttpOptions): Backend {
     },
     system: {
       backup: async () => (await post<{ completedAt: string }>('/v1/backups')).completedAt,
+      backups: () => get('/v1/backups'),
+      downloadBackup: async (id) => JSON.stringify(await get(`/v1/backups/${enc(id)}`), null, 2),
+      restoreBackup: async (source) => {
+        if ('id' in source) return void (await post(`/v1/backups/${enc(source.id)}/restore`));
+        let backup: unknown;
+        try { backup = JSON.parse(source.file); } catch { throw new BackendError('This file is not a Nexora AI backup.'); }
+        await post('/v1/backups/restore', { backup });
+      },
       revokeSession: (id) => call('DELETE', `/v1/sessions/${encodeURIComponent(id)}`),
     },
   };

@@ -1,6 +1,6 @@
 import type {
-  ActivationResult, AiTask, Change, ConnectDetail, DashboardMetrics, DeviceInfo, GeneratedPost, Lead, LicenseEvent, LicenseState,
-  OpenRouterModel, ProviderName, Range, Tone, WorkspaceSnapshot,
+  ActivationResult, AiTask, Change, ConnectDetail, DashboardMetrics, DeviceInfo, GeneratedPost, Invitation, Lead, LicenseEvent, LicenseState,
+  MfaSetup, OpenRouterModel, ProviderName, Range, Role, SignInResult, Tone, WorkspaceRef, WorkspaceSnapshot,
 } from '../lib/types';
 
 export interface LicenseStatus {
@@ -12,6 +12,9 @@ export interface LicenseStatus {
 }
 
 export type TransferResult = ActivationResult | { ok: false; code: 'bad_code' };
+
+export interface BackupInfo { id: string; createdAt: string; automatic: boolean; sizeBytes: number; leads: number }
+export interface InvitationInfo { email: string; workspace: string; role: Role; hasAccount: boolean }
 
 export interface ChatTurn { me: boolean; text: string }
 
@@ -36,8 +39,39 @@ export interface Backend {
     activate(key: string, device: DeviceInfo): Promise<ActivationResult>;
     /** Emails a 6-digit code to the license owner. */
     requestTransfer(key: string, device: DeviceInfo): Promise<void>;
-    confirmTransfer(key: string, code: string, device: DeviceInfo): Promise<TransferResult>;
+    /** On a license with several seats, `replaceDeviceId` names the device that gives up its seat. */
+    confirmTransfer(key: string, code: string, device: DeviceInfo, replaceDeviceId?: string): Promise<TransferResult>;
     deactivate(device: DeviceInfo): Promise<void>;
+  };
+
+  /** Accounts. Every method needs a server; without one they reject. */
+  auth: {
+    /** Signs in and gives this device a seat on the license that covers the person's workspace. */
+    signIn(input: { email: string; password: string; code?: string }, device: DeviceInfo): Promise<SignInResult>;
+    signOut(): Promise<void>;
+    /** Sets a first password, or changes it when `current` is given. */
+    setPassword(password: string, current?: string): Promise<void>;
+    forgotPassword(email: string): Promise<void>;
+    resetPassword(email: string, code: string, password: string): Promise<void>;
+    mfaSetup(): Promise<MfaSetup>;
+    /** Confirms setup. The recovery codes are returned this once. */
+    mfaEnable(code: string): Promise<{ recoveryCodes: string[] }>;
+    mfaDisable(password: string, code: string): Promise<void>;
+    invitationInfo(token: string): Promise<InvitationInfo>;
+    acceptInvitation(input: { token: string; name: string; password: string }, device: DeviceInfo): Promise<SignInResult>;
+  };
+
+  team: {
+    invite(email: string, role: Role): Promise<Invitation>;
+    cancelInvitation(id: string): Promise<void>;
+    setRole(userId: string, role: Role): Promise<void>;
+    remove(userId: string): Promise<void>;
+  };
+
+  workspaces: {
+    create(name: string): Promise<WorkspaceRef>;
+    /** Points this session at another workspace of the account. */
+    switchTo(id: string): Promise<void>;
   };
 
   workspace: {
@@ -87,6 +121,11 @@ export interface Backend {
   system: {
     /** Returns the backup's completion time (ISO). */
     backup(): Promise<string>;
+    backups(): Promise<BackupInfo[]>;
+    /** The backup as text, ready to save as a file. */
+    downloadBackup(id: string): Promise<string>;
+    /** Replaces the workspace's content with a stored backup, or with the contents of a backup file. */
+    restoreBackup(source: { id: string } | { file: string }): Promise<void>;
     revokeSession(id: string): Promise<void>;
   };
 }

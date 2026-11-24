@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Backend } from '../api';
+import { BackendError, type Backend } from '../api';
 import type { ChatTurn } from '../api/backend';
 import { bridge, previewPlatform } from '../platform/bridge';
 import { NAV } from '../shell/nav';
@@ -24,11 +24,13 @@ export interface DialogSpec {
 export type AiTab = 'scoring' | 'chat' | 'prompts';
 export type LeadsTab = 'list' | 'pipeline' | 'campaigns';
 export type ContentTab = 'gen' | 'posts' | 'cal';
-export type SettingsTab = 'profile' | 'ai' | 'security' | 'sync' | 'license' | 'appearance';
+export type SettingsTab = 'profile' | 'ai' | 'security' | 'team' | 'sync' | 'license' | 'appearance';
 export type WidgetId = 'kpi' | 'perf' | 'funnel' | 'tasks' | 'ai' | 'activity' | 'health';
 
 export interface AppState {
-  boot: 'loading' | 'gate' | 'ready' | 'error';
+  /** `account`: this device has its seat, and someone must sign in (or set up two-step sign-in) before the workspace opens. */
+  boot: 'loading' | 'gate' | 'account' | 'ready' | 'error';
+  account: 'sign_in' | 'mfa_setup' | null;
   bootError: string;
   backend: Backend | null;
   device: DeviceInfo | null;
@@ -98,7 +100,13 @@ export interface AppState {
   refresh(): Promise<void>;
   goOffline(): void;
   goOnline(): Promise<void>;
-  onLicensed(license: LicenseState, token: string): Promise<void>;
+  /** A license was granted to this device. With `signInRequired`, the sign-in screen is shown instead of the workspace. */
+  onLicensed(license: LicenseState, token: string, signInRequired?: boolean): Promise<void>;
+  /** The server needs someone to sign in, or to set up two-step sign-in, before going on. */
+  accountNeeded(what: 'sign_in' | 'mfa_setup'): void;
+  /** Loads the workspace again after signing in, setting up two-step sign-in or switching workspace. */
+  enter(): Promise<void>;
+  signOut(): Promise<void>;
   refreshLicenseEvents(): Promise<void>;
   deactivate(): Promise<void>;
   /** The server no longer recognises a license on this device (revoked, expired, transferred). */
@@ -203,7 +211,7 @@ export const useApp = create<AppState>((set, get) => {
   };
 
   return {
-    boot: 'loading', bootError: '', backend: null, device: null, platform: 'web', preview: false, compact: false,
+    boot: 'loading', account: null, bootError: '', backend: null, device: null, platform: 'web', preview: false, compact: false,
     theme: 'light', collapsed: false, widgets: ALL_WIDGETS,
     online: true, syncing: false, pending: 0,
     screen: 'dashboard', aiTab: 'scoring', leadsTab: 'list', inboxId: null, csTab: 'gen', setTab: 'profile', range: '7d',
@@ -213,7 +221,9 @@ export const useApp = create<AppState>((set, get) => {
     async init(backend) {
       const theme = read<Theme>(LS.theme, prefersDark() ? 'dark' : 'light');
       applyTheme(theme);
-      const device = await bridge.deviceInfo();
+      let timeZone: string | undefined;
+      try { timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { /* unknown */ }
+      const device = { ...(await bridge.deviceInfo()), timeZone };
       const narrow = typeof matchMedia === 'function' ? matchMedia(NARROW) : null;
       const compact = () => device.platform === 'android' || (narrow?.matches ?? false);
       narrow?.addEventListener('change', () => set({ compact: compact() }));
@@ -227,12 +237,15 @@ export const useApp = create<AppState>((set, get) => {
         const status = await backend.license.status(device);
         set({ licEvents: status.events });
         if (!status.license) return set({ boot: 'gate' });
-        if (status.entitlementToken) await bridge.entitlementSave(status.entitlementToken);
+        if (status.entitlementToken) await bridge.entitlementSave(status.entitlementToken).catch(() => { /* no public key in this build: no offline token */ });
         set({ license: status.license });
         await loadWorkspace();
         set({ boot: 'ready' });
         if (get().pending) void get().goOnline();
       } catch (e) {
+        if (e instanceof BackendError && (e.code === 'sign_in_required' || e.code === 'mfa_setup_required')) {
+          return set({ boot: 'account', account: e.code === 'sign_in_required' ? 'sign_in' : 'mfa_setup' });
+        }
         // Server unreachable. Native targets may continue inside the signed token's grace period.
         if (device.platform !== 'web') {
           const ent = await bridge.entitlementStatus();
@@ -350,18 +363,32 @@ export const useApp = create<AppState>((set, get) => {
       }
     },
 
-    async onLicensed(license, token) {
-      if (token) await bridge.entitlementSave(token);
+    async onLicensed(license, token, signInRequired) {
+      if (token) await bridge.entitlementSave(token).catch(() => { /* a build without the server's public key keeps no offline token */ });
       if (get().platform !== 'web') await bridge.cachePut('license', license);
       set({ license });
+      if (signInRequired) return set({ boot: 'account', account: 'sign_in' });
+      await get().enter();
+      if (get().boot === 'ready') { get().notify('License activated'); void get().refreshLicenseEvents(); }
+    },
+    accountNeeded(what) {
+      if (get().boot !== 'ready' && get().boot !== 'account') return;
+      set({ boot: 'account', account: what, dialog: null, tour: null });
+    },
+    async enter() {
       try {
         await loadWorkspace();
-        set({ boot: 'ready', screen: 'dashboard' });
-        get().notify('License activated');
-        void get().refreshLicenseEvents();
+        set({ boot: 'ready', account: null, screen: 'dashboard', metrics: {} });
       } catch (e) {
+        if (e instanceof BackendError && e.code === 'sign_in_required') return set({ boot: 'account', account: 'sign_in' });
+        if (e instanceof BackendError && e.code === 'mfa_setup_required') return set({ boot: 'account', account: 'mfa_setup' });
         set({ boot: 'error', bootError: errText(e) });
       }
+    },
+    async signOut() {
+      try { await get().backend!.auth.signOut(); } catch (e) { return get().notify(`Could not sign out: ${errText(e)}`); }
+      await bridge.cacheClear().catch(() => {});
+      set({ ws: null, boot: 'account', account: 'sign_in', chat: [], metrics: {}, dialog: null, tour: null });
     },
     async refreshLicenseEvents() {
       const { backend, device } = get();
@@ -380,15 +407,15 @@ export const useApp = create<AppState>((set, get) => {
       await bridge.entitlementClear();
       await bridge.secretDelete('session');
       await bridge.cacheClear();
-      set({ license: null, ws: null, boot: 'gate', chat: [], metrics: {}, tour: null });
+      set({ license: null, ws: null, boot: 'gate', account: null, chat: [], metrics: {}, tour: null });
       void get().refreshLicenseEvents();
     },
 
     licenseLost() {
-      if (get().boot !== 'ready') return;
+      if (get().boot !== 'ready' && get().boot !== 'account') return;
       void bridge.entitlementClear();
       void bridge.secretDelete('session');
-      set({ license: null, ws: null, boot: 'gate', chat: [], metrics: {}, dialog: null, tour: null });
+      set({ license: null, ws: null, boot: 'gate', account: null, chat: [], metrics: {}, dialog: null, tour: null });
       get().notify('This device no longer has an active license.');
     },
 

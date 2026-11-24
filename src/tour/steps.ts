@@ -222,7 +222,7 @@ export const TOUR: Record<ScreenId, TourStep[]> = {
     {
       target: 'set-tabs',
       title: 'Settings sections',
-      body: 'Profile, AI providers, security, sync, license and appearance.',
+      body: 'Profile, AI providers, security, team and workspaces, hosting and backups, license and appearance.',
     },
     {
       target: 'set-panel',
@@ -238,9 +238,21 @@ export const TOUR: Record<ScreenId, TourStep[]> = {
     },
     {
       target: 'set-panel',
+      tabs: { setTab: 'security' },
+      title: 'Passwords and two-step sign-in',
+      body: 'With a server connected, set a password so every device signs in, add a second step with an authenticator app, and see where each session is. Team members are invited from Team and workspaces.',
+    },
+    {
+      target: 'set-panel',
+      tabs: { setTab: 'sync' },
+      title: 'Backups and your own server',
+      body: 'Save a backup and restore from one. To use a server you host yourself, enter its address here; the app then keeps your workspace there instead of on this device.',
+    },
+    {
+      target: 'set-panel',
       tabs: { setTab: 'license' },
       title: 'Your license',
-      body: 'Your plan and the device it is active on. Deactivate here before you move the license to another device.',
+      body: 'Your plan and the device it is active on. Deactivate here to free this device’s seat for another one.',
     },
   ],
 };

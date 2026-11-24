@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { createBackend } from './api';
 import { Dialog, Toast } from './components/Overlays';
 import { Button, Card } from './components/ui';
+import { AccountGate } from './screens/Account';
 import { AiIntelligence } from './screens/AiIntelligence';
 import { Automation } from './screens/Automation';
 import { Communication } from './screens/Communication';
@@ -46,7 +47,10 @@ export function App() {
   const bootError = useApp((s) => s.bootError);
 
   useEffect(() => {
-    void createBackend(() => useApp.getState().licenseLost()).then((b) => useApp.getState().init(b));
+    void createBackend({
+      onLicenseLost: () => useApp.getState().licenseLost(),
+      onAccountNeeded: (what) => useApp.getState().accountNeeded(what),
+    }).then((b) => useApp.getState().init(b));
   }, []);
 
   // Returning from a provider's OAuth page: report the outcome once and clean the address bar.
@@ -98,6 +102,7 @@ export function App() {
         </Centered>
       )}
       {boot === 'gate' && <LicenseGate />}
+      {boot === 'account' && <AccountGate />}
       {boot === 'ready' && <Shell><Screen key={screen} /></Shell>}
       {boot === 'ready' && <Tour />}
       <Dialog />

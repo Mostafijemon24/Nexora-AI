@@ -72,6 +72,15 @@ export function Automation() {
     s.commit(`“${f.name}” ${f.on ? 'switched off' : 'switched on'}`, change('workflow', f.id, next));
   };
 
+  if (ws.plan.features && !ws.plan.features.includes('workflows')) {
+    return (
+      <Card kicker="Workflows" className="screen" tour="auto-list">
+        <div className="muted">Workflows are part of the Professional plan. Your plan is {ws.plan.name}.</div>
+        <div className="hint13">A workflow carries out steps by itself when something happens: a new lead, a stage change, a received message or a schedule.</div>
+        <div data-tour="auto-editor" /><div data-tour="auto-runs" />
+      </Card>
+    );
+  }
   if (!wf) {
     return (
       <Card kicker="Workflows" className="screen" tour="auto-list">
