@@ -35,9 +35,11 @@ describe('snapshot', () => {
     expect(s.posts.map((p: any) => p.status).sort()).toEqual(['Draft', 'In review', 'Published', 'Scheduled']);
     expect(s.workflows[0]).toMatchObject({ name: 'Score and draft for new leads', on: true });
     expect(s.sessions).toEqual([{ id: expect.any(String), current: true, device: 'A-PC · this device', meta: 'active now' }]);
-    expect(s.integrations).toHaveLength(11);
+    expect(s.integrations).toHaveLength(13);
     expect(s.providers.every((p: any) => p.verified === false)).toBe(true);
-    expect(JSON.stringify(s)).not.toMatch(/secret|token_hash|key_hash/i);
+    // Integration entries describe the fields a person fills in (some are labelled "secret"); no value is ever included.
+    expect(s.integrations.every((g: any) => Object.keys(g).every((k) => ['id', 'name', 'cat', 'desc', 'oauth', 'connected', 'fields', 'hook', 'sync'].includes(k)))).toBe(true);
+    expect(JSON.stringify({ ...s, integrations: [] })).not.toMatch(/secret|token_hash|key_hash/i);
   });
 
   it('computes dashboard metrics from stored data', async () => {

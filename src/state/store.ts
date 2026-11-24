@@ -5,7 +5,7 @@ import { bridge, previewPlatform } from '../platform/bridge';
 import { NAV } from '../shell/nav';
 import { TOUR, type TourTabs } from '../tour/steps';
 import type {
-  Change, DashboardMetrics, DeviceInfo, LicenseEvent, LicenseState, Platform, Range, ScreenId, Theme, WorkspaceSnapshot,
+  Change, ConnectDetail, DashboardMetrics, IntegrationField, DeviceInfo, LicenseEvent, LicenseState, Platform, Range, ScreenId, Theme, WorkspaceSnapshot,
 } from '../lib/types';
 
 export interface DialogSpec {
@@ -14,7 +14,11 @@ export interface DialogSpec {
   confirm: string;
   /** Label of a required secret field (e.g. "API key"); omitted for plain confirmations. */
   field?: string;
-  run: (value: string) => void;
+  /** Several named fields to fill in instead of one. Their values arrive as the second argument of `run`. */
+  fields?: IntegrationField[];
+  /** Values to show for copying. A dialog with details has no Cancel button. */
+  details?: ConnectDetail[];
+  run: (value: string, values: Record<string, string>) => void;
 }
 
 export type AiTab = 'scoring' | 'chat' | 'prompts';

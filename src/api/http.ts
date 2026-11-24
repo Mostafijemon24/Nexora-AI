@@ -87,7 +87,7 @@ export function createHttpBackend(baseUrl: string, opts: HttpOptions): Backend {
     leads: { importCsv: (csv) => post('/v1/leads/import', { csv }) },
     integrations: {
       test: (id) => post(`/v1/integrations/${encodeURIComponent(id)}/test`),
-      connect: (id, apiKey) => post(`/v1/integrations/${encodeURIComponent(id)}/connect`, apiKey ? { apiKey } : {}),
+      connect: (id, input) => post(`/v1/integrations/${encodeURIComponent(id)}/connect`, typeof input === 'string' ? (input ? { apiKey: input } : {}) : input ? { fields: input } : {}),
       disconnect: (id) => call('DELETE', `/v1/integrations/${encodeURIComponent(id)}`),
     },
     providers: {

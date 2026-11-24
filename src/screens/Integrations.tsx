@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { Button, Card, Seg } from '../components/ui';
+import { relTime } from '../lib/dates';
 import type { Integration } from '../lib/types';
 import { useApp, useWs } from '../state/store';
 
@@ -55,16 +56,27 @@ export function Integrations() {
       title: `Connect ${g.name}`,
       body: g.oauth
         ? `You will authorize on ${g.name}’s own sign-in page. Nexora AI never sees your password and requests approved scopes only.`
-        : 'Paste a key. It is encrypted before storage and scoped to this workspace.',
-      confirm: g.oauth ? 'Authorize' : 'Test and connect',
-      field: g.oauth ? undefined : 'API key',
-      run: async (key) => {
+        : g.hook
+          ? 'Connecting creates a private address for this workspace. Any system that posts a message to it adds that message to your inbox. Connecting again replaces the address.'
+          : g.fields
+            ? 'These details are checked with the service, then encrypted before storage. They are scoped to this workspace and never shown again.'
+            : 'Paste a key. It is encrypted before storage and scoped to this workspace.',
+      confirm: g.oauth ? 'Authorize' : g.hook ? 'Create address' : 'Test and connect',
+      field: g.oauth || g.hook || g.fields ? undefined : 'API key',
+      fields: g.fields,
+      run: async (key, values) => {
         try {
-          const { redirectUrl } = await s.backend!.integrations.connect(g.id, key || undefined);
+          const { redirectUrl, details } = await s.backend!.integrations.connect(g.id, g.fields ? values : key || undefined);
           // OAuth: the provider's own page takes over; the server marks it connected on callback.
           if (redirectUrl) return void window.location.assign(redirectUrl);
           mark(g.id, true);
           s.commit(`${g.name} connected`);
+          if (details?.length) {
+            s.confirm({
+              title: `${g.name} connected`, confirm: 'Done', details, run: () => {},
+              body: 'Copy these into the other system now. For your security they are shown only once; connect again to get new ones.',
+            });
+          }
         } catch (e) {
           s.notify(`Could not connect ${g.name}: ${errText(e)}`);
         }
@@ -124,6 +136,7 @@ export function Integrations() {
             </div>
             <div className="card-title">{g.name}</div>
             <p className="card-body">{g.desc}</p>
+            {g.connected && g.sync && <div className="note" style={{ color: g.sync.ok ? undefined : 'var(--color-error, #b3261e)' }}>{g.sync.note} · {relTime(g.sync.at)}</div>}
             <div className="row wrap" style={{ gap: 6 }}>
               {g.connected ? (
                 <>

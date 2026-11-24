@@ -24,12 +24,17 @@ function ago(then: Date, now: Date): string {
 
 /** Connection state for every integration in the catalog. AI entries mirror the provider keys. */
 export async function loadIntegrations(q: Q, workspaceId: string): Promise<Integration[]> {
-  const conn = new Set((await q.query('SELECT integration_id FROM integration_connections WHERE workspace_id = $1', [workspaceId])).rows.map((r) => r.integration_id as string));
+  const conn = new Map((await q.query('SELECT integration_id, state FROM integration_connections WHERE workspace_id = $1', [workspaceId])).rows.map((r) => [r.integration_id as string, r.state as Record<string, any>]));
   const keys = new Set((await q.query('SELECT provider FROM provider_credentials WHERE workspace_id = $1 AND verified', [workspaceId])).rows.map((r) => r.provider as string));
-  return CATALOG.map((c) => ({
-    id: c.id, name: c.name, cat: c.cat, desc: c.desc, oauth: c.kind === 'oauth',
-    connected: c.kind === 'provider' ? keys.has(c.name) : conn.has(c.id),
-  }));
+  return CATALOG.map((c) => {
+    const sync = conn.get(c.id)?.sync;
+    return {
+      id: c.id, name: c.name, cat: c.cat, desc: c.desc, oauth: c.kind === 'oauth',
+      connected: c.kind === 'provider' ? keys.has(c.name) : conn.has(c.id),
+      ...(c.fields ? { fields: c.fields } : {}), ...(c.kind === 'hook' ? { hook: true } : {}),
+      ...(sync && typeof sync.at === 'string' ? { sync: { at: sync.at, note: String(sync.note ?? ''), ok: sync.ok !== false } } : {}),
+    };
+  });
 }
 
 /** Everything the client needs for one workspace. Secrets (keys, tokens) are never part of it. */

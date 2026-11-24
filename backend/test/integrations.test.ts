@@ -19,8 +19,14 @@ beforeEach(() => { h.calls.length = 0; });
 
 describe('key-based integrations', () => {
   it('requires a key, tests it before storing, and encrypts it', async () => {
-    expect((await d.post('/v1/integrations/n8/connect', {})).body.message).toBe('Enter a key to continue.');
-    expect((await d.post('/v1/integrations/n8/connect', { apiKey: 'not-a-url' })).body.message).toBe('Enter the full https:// webhook address.');
+    expect((await d.post('/v1/integrations/n8/connect', {})).body.message).toBe('Enter: Webhook address.');
+    expect((await d.post('/v1/integrations/n8/connect', { apiKey: 'not-a-url' })).body.message).toBe('Enter the full https:// address.');
+    // The server only calls public addresses, never its own network.
+    for (const url of ['https://localhost/hook', 'https://127.0.0.1/hook', 'https://10.1.2.3/x', 'https://169.254.169.254/latest', 'https://[::1]/x', 'https://db.internal/x']) {
+      expect((await d.post('/v1/integrations/n8/connect', { fields: { url } })).body.message, url).toBe('That address is not reachable from the internet.');
+    }
+    expect((await d.post('/v1/integrations/n8/connect', { fields: { url: 'https://n8n.example/webhook/abc', secret: 'short' } })).body.message).toMatch(/at least 16 characters/);
+    expect(h.calls).toHaveLength(0);
 
     h.respond = () => json({}, 500);
     const bad = await d.post('/v1/integrations/n8/connect', { apiKey: 'https://n8n.example/webhook/abc' });

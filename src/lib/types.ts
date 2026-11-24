@@ -138,6 +138,8 @@ export interface Run {
 }
 
 export type IntegrationCategory = 'AI' | 'CRM' | 'Automation' | 'Communication' | 'Developer' | 'Social';
+/** One credential an integration asks for when it is connected. */
+export interface IntegrationField { key: string; label: string; placeholder?: string; secret?: boolean; optional?: boolean }
 export interface Integration {
   id: string;
   name: string;
@@ -145,7 +147,15 @@ export interface Integration {
   desc: string;
   oauth: boolean;
   connected: boolean;
+  /** Credentials to type in. Absent for sign-in (OAuth) integrations and for a single API key. */
+  fields?: IntegrationField[];
+  /** True when connecting asks for nothing and only issues an address. */
+  hook?: boolean;
+  /** When this connection last exchanged data, and what happened. */
+  sync?: { at: string; note: string; ok: boolean };
 }
+/** Shown once after connecting: values to copy into the other system. */
+export interface ConnectDetail { label: string; value: string }
 
 export interface Task {
   id: string;

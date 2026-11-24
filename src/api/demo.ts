@@ -9,6 +9,7 @@ import type { Backend, LicenseStatus } from './backend';
 import { funnel, inRange } from '../lib/analytics';
 import { CsvError, leadsFromCsv } from '../lib/csv';
 import { addDays, shortDate, toIsoDate, weekOf, fullDate } from '../lib/dates';
+import { CATALOG } from '../lib/integrations';
 import { rankLeads } from '../lib/scoring';
 import { newLead, PROVIDER_NAMES } from '../lib/types';
 import type {
@@ -33,21 +34,10 @@ const LS_KEY = 'nexora.demo.license';
 const LS_WORKSPACE = 'nexora.local.workspace';
 const LS_SCHEDULES = 'nexora.local.schedules';
 
-/** Every integration the app offers. Whether one is connected belongs to the workspace. */
-const CATALOG: Omit<Integration, 'connected'>[] = [
-  { id: 'li', name: 'LinkedIn', cat: 'Social', desc: 'Official OAuth. Approved scopes only.', oauth: true },
-  { id: 'oa', name: 'OpenAI', cat: 'AI', desc: 'Text and image generation.', oauth: false },
-  { id: 'ge', name: 'Google Gemini', cat: 'AI', desc: 'Content generation and research.', oauth: false },
-  { id: 'cl', name: 'Anthropic Claude', cat: 'AI', desc: 'Reply suggestions and analysis.', oauth: false },
-  { id: 'or', name: 'OpenRouter', cat: 'AI', desc: 'Bring your own key. Free and paid models from many providers.', oauth: false },
-  { id: 'hs', name: 'HubSpot', cat: 'CRM', desc: 'Two-way contact sync.', oauth: true },
-  { id: 'sf', name: 'Salesforce', cat: 'CRM', desc: 'Lead and account sync.', oauth: true },
-  { id: 'n8', name: 'n8n', cat: 'Automation', desc: 'Trigger external workflows by webhook.', oauth: false },
-  { id: 'wa', name: 'WhatsApp Cloud API', cat: 'Communication', desc: 'Approved business messaging channel.', oauth: false },
-  { id: 'gc', name: 'Google Calendar', cat: 'Communication', desc: 'Meeting and follow-up scheduling.', oauth: true },
-  { id: 'wh', name: 'Webhooks', cat: 'Developer', desc: 'Signed events for leads, posts and runs.', oauth: false },
-];
-const catalog = (connected: (id: string) => boolean = () => false): Integration[] => CATALOG.map((g) => ({ ...g, connected: connected(g.id) }));
+const catalog = (connected: (id: string) => boolean = () => false): Integration[] => CATALOG.map((g) => ({
+  id: g.id, name: g.name, cat: g.cat, desc: g.desc, oauth: g.kind === 'oauth', connected: connected(g.id),
+  ...(g.fields ? { fields: g.fields } : {}), ...(g.kind === 'hook' ? { hook: true } : {}),
+}));
 
 /** A new workspace: no leads, posts, conversations or workflows, nothing connected. */
 export function emptyWorkspace(): WorkspaceSnapshot {

@@ -149,7 +149,7 @@ export const TOUR: Record<ScreenId, TourStep[]> = {
     {
       target: 'inbox-notice',
       title: 'Where conversations come from',
-      body: 'Only manual import and approved connectors. Your LinkedIn private inbox is never accessed.',
+      body: 'From the email and WhatsApp accounts you connect, from workflows, and from what you add yourself. Your LinkedIn private inbox is never accessed.',
     },
     {
       target: 'inbox-list',
@@ -159,7 +159,7 @@ export const TOUR: Record<ScreenId, TourStep[]> = {
     {
       target: 'inbox-thread',
       title: 'Reply with help',
-      body: 'An open conversation shows its intent, a suggested reply that needs your approval, and internal notes. Create follow-up adds a task to the dashboard.',
+      body: 'Write a reply or use the suggested one. It is sent by email or WhatsApp when that channel is connected and the conversation has an address; otherwise it is kept here and marked as not sent. Create follow-up adds a task to the dashboard.',
     },
   ],
   automation: [
@@ -215,7 +215,7 @@ export const TOUR: Record<ScreenId, TourStep[]> = {
     {
       target: 'int-list',
       title: 'Connect your tools',
-      body: 'AI providers, CRM, messaging and automation services. Filter by category, then choose Connect. Connecting needs a Nexora AI server, so it is switched off in a build that runs without one.',
+      body: 'AI providers, CRM, email, WhatsApp and automation services. Filter by category, then choose Connect. Connecting needs a Nexora AI server, so it is switched off in a build that runs without one.',
     },
   ],
   settings: [

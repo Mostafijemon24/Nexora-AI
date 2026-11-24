@@ -1,5 +1,5 @@
 import type {
-  ActivationResult, AiTask, Change, DashboardMetrics, DeviceInfo, GeneratedPost, Lead, LicenseEvent, LicenseState,
+  ActivationResult, AiTask, Change, ConnectDetail, DashboardMetrics, DeviceInfo, GeneratedPost, Lead, LicenseEvent, LicenseState,
   OpenRouterModel, ProviderName, Range, Tone, WorkspaceSnapshot,
 } from '../lib/types';
 
@@ -63,8 +63,11 @@ export interface Backend {
 
   integrations: {
     test(id: string): Promise<{ latencyMs: number }>;
-    /** Key-based integrations connect directly. OAuth ones return the provider URL to open. */
-    connect(id: string, apiKey?: string): Promise<{ redirectUrl?: string }>;
+    /**
+     * Connects with an API key, or with the named fields the integration asks for. Sign-in (OAuth)
+     * integrations return the provider URL to open; some return values to copy into the other system.
+     */
+    connect(id: string, input?: string | Record<string, string>): Promise<{ redirectUrl?: string; details?: ConnectDetail[] }>;
     disconnect(id: string): Promise<void>;
   };
 
