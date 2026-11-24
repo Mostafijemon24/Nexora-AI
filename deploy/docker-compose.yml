@@ -1,0 +1,94 @@
+# Nexora AI server for one machine: API, background worker, PostgreSQL, Redis and an HTTPS proxy.
+# Settings come from deploy/.env (see .env.example). deploy/install.sh writes it and starts everything.
+#
+#   docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d --build
+#
+# The "proxy" profile runs Caddy on ports 80/443 with an automatic certificate for API_DOMAIN. On a
+# server that already has a web server on those ports, leave COMPOSE_PROFILES empty and point that
+# web server at 127.0.0.1:API_PORT instead (deploy/README.md has the nginx block).
+name: nexora
+
+x-backend: &backend
+  image: nexora-backend
+  restart: unless-stopped
+  env_file: .env
+  environment:
+    DATABASE_URL: postgres://nexora:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env}@postgres:5432/nexora
+    REDIS_URL: redis://redis:6379
+    PUBLIC_API_URL: https://${API_DOMAIN:?set API_DOMAIN in deploy/.env}
+    TRUST_PROXY: "1"
+    PORT: "8787"
+
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: nexora
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: nexora
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nexora -d nexora"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes: [redisdata:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # Applies database migrations, then exits. The API and worker wait for it.
+  migrate:
+    <<: *backend
+    build: { context: .., dockerfile: backend/Dockerfile }
+    restart: "no"
+    command: ["node", "src/cli.ts", "migrate"]
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  api:
+    <<: *backend
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    ports: ["127.0.0.1:${API_PORT:-8787}:8787"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/healthz').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  worker:
+    <<: *backend
+    command: ["node", "src/worker.ts"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+
+  caddy:
+    profiles: [proxy]
+    image: caddy:2
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      API_DOMAIN: ${API_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+      - caddyconfig:/config
+    depends_on:
+      api: { condition: service_healthy }
+
+volumes:
+  pgdata:
+  redisdata:
+  caddydata:
+  caddyconfig:

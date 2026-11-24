@@ -6,3 +6,5 @@ dist
 design
 src-tauri
 crates
+docs
+.github

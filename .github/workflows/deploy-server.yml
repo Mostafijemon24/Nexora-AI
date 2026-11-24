@@ -1,0 +1,43 @@
+name: Deploy server
+
+# Updates the Nexora AI server on the VPS over SSH: pulls main and rebuilds the containers.
+# The server must have been installed once with deploy/install.sh (see deploy/README.md).
+#
+# Repository secrets: VPS_HOST, VPS_USER, VPS_SSH_KEY, and optionally VPS_PORT.
+# Without them this workflow does nothing.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["backend/**", "src/lib/**", "deploy/**"]
+
+concurrency:
+  group: deploy-server
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+      VPS_PORT: ${{ secrets.VPS_PORT }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+    steps:
+      - name: Check that the server is configured
+        id: cfg
+        run: |
+          if [ -n "$VPS_HOST" ] && [ -n "$VPS_USER" ] && [ -n "$VPS_SSH_KEY" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "VPS_HOST, VPS_USER and VPS_SSH_KEY are not all set: nothing to deploy to."
+          fi
+      - name: Update the server
+        if: steps.cfg.outputs.ready == 'true'
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          ssh -i ~/.ssh/id_deploy -p "${VPS_PORT:-22}" -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=30 \
+            "$VPS_USER@$VPS_HOST" 'bash /opt/nexora/deploy/install.sh'

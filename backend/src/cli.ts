@@ -12,6 +12,7 @@ import { importLeads } from './workspace/leads.ts';
 const HELP = `Nexora AI backend
 
   keygen                              print fresh secrets for .env and the client's public key
+  pubkey                              print the client's public key for the LICENSE_SIGNING_KEY in the environment
   migrate                             apply database migrations
   license:create --email E --name N --workspace W [--plan professional] [--months 1] [--max-devices 1] [--demo]
                                       issue a license (the key is shown once); --demo adds sample workspace data
@@ -41,6 +42,12 @@ async function main() {
     console.log(`# Server .env\nLICENSE_SIGNING_KEY=${seed.toString('base64')}\nDATA_ENCRYPTION_KEY=${randomBytes(32).toString('base64')}\nHASH_SECRET=${randomBytes(36).toString('base64url')}\n`);
     console.log(`# Native client build environment\nNEXORA_LICENSE_PUBLIC_KEY=${publicKeyBase64(seed)}`);
     return;
+  }
+
+  if (command === 'pubkey') {
+    const seed = Buffer.from(process.env.LICENSE_SIGNING_KEY ?? '', 'base64');
+    if (seed.length !== 32) throw new Error('LICENSE_SIGNING_KEY is not set to a 32-byte base64 value.');
+    return void console.log(publicKeyBase64(seed));
   }
 
   const { createRuntime } = await import('./runtime.ts');
