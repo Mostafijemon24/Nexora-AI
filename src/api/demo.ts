@@ -1,8 +1,9 @@
 // Local backend, selected only when VITE_API_URL is unset, so the app runs without the Nexora AI
-// API. The workspace starts empty and is kept in this device's storage between launches. AI
-// answers, key checks and connection tests are simulated here, and it is never a substitute for
+// API. The workspace starts empty and is kept in this device's storage between launches. With no
+// server there is nothing to hold credentials or call a provider, so integrations and provider
+// keys cannot be connected and AI answers are built-in examples; it is never a substitute for
 // server-side license enforcement. Adding `?sample` to the address loads the design prototype's
-// sample data instead (never stored), for previews and screenshots.
+// sample data instead (never stored), where connections are simulated, for previews and screenshots.
 
 import type { Backend, LicenseStatus } from './backend';
 import { addDays, shortDate, toIsoDate, weekOf, fullDate } from '../lib/dates';
@@ -77,13 +78,14 @@ function storedWorkspace(): WorkspaceSnapshot {
     const raw = localStorage.getItem(LS_WORKSPACE);
     if (!raw) return fresh;
     const saved = JSON.parse(raw) as Partial<WorkspaceSnapshot>;
-    const connected = new Set((saved.integrations ?? []).filter((g) => g.connected).map((g) => g.id));
-    return { ...fresh, ...saved, integrations: catalog((id) => connected.has(id)) };
+    // Nothing can be connected without a server, whatever an earlier build stored.
+    return { ...fresh, ...saved, integrations: fresh.integrations, providers: fresh.providers };
   } catch {
     return fresh; // storage unavailable or unreadable
   }
 }
 
+const NO_SERVER = 'This build is not connected to a Nexora AI server.';
 const sampleRequested = (): boolean => typeof location !== 'undefined' && new URLSearchParams(location.search).has('sample');
 
 const bar = (label: string, value: number) => ({ label, value });
@@ -310,6 +312,7 @@ export function createDemoBackend(now: () => Date = () => new Date(), sample = s
 
   return {
     demo: true,
+    canConnect: sample,
     license: {
       async status(): Promise<LicenseStatus> {
         return { license, events };
@@ -388,6 +391,7 @@ export function createDemoBackend(now: () => Date = () => new Date(), sample = s
         return { latencyMs: 120 + (g?.name.length ?? 0) * 9 };
       },
       async connect(id) {
+        if (!sample) throw new Error(NO_SERVER);
         await wait(300);
         const g = ws.integrations.find((x) => x.id === id);
         if (g) g.connected = true;
@@ -402,6 +406,7 @@ export function createDemoBackend(now: () => Date = () => new Date(), sample = s
     },
     providers: {
       async verifyKey(name, key) {
+        if (!sample) throw new Error(NO_SERVER);
         await wait(800);
         const p = ws.providers.find((x) => x.name === name);
         const ok = key.trim() ? true : (p?.verified ?? false); // empty key re-checks the stored one

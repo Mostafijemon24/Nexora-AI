@@ -120,6 +120,7 @@ function Assistant() {
         />
         <PrimaryButton disabled={s.thinking} onClick={() => void s.sendChat()}>Send</PrimaryButton>
       </div>
+      {!s.backend!.canConnect && <div className="note">No AI provider is connected in this build. Answers are built-in examples, not written by a model.</div>}
     </Card>
   );
 }

@@ -201,9 +201,10 @@ Installers for **Windows** (`.exe`, `.msi`), **macOS** (`.dmg`, Apple Silicon an
 
 The current installers are a **preview that runs without a server**. Use the key `NXR-VALID-0001`
 to get in. The workspace starts empty and a short tour introduces each page the first time you open
-it (the **?** button in the header replays it). What you add is kept on that device; AI answers, key
-checks and connection tests are simulated until a server is connected. The installers are not
-code-signed yet, so Windows and macOS will show a warning the first time you open them.
+it (the **?** button in the header replays it). What you add is kept on that device. Without a
+server, integrations and AI provider keys cannot be connected (LinkedIn sign-in included) and AI
+answers are built-in examples. The installers are not code-signed yet, so Windows and macOS will
+show a warning the first time you open them.
 
 **macOS, first launch.** If macOS says the app cannot be verified, open **System Settings → Privacy
 & Security** and click **Open Anyway**. If it says *"Nexora AI.app" is damaged and can't be opened*,

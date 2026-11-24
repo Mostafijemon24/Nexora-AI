@@ -11,7 +11,8 @@ _Last updated: 23 November 2026_
 - Tauri 2 shell with typed commands; Rust core for the SQLite offline queue, local cache and
   offline verification of signed entitlement tokens; OS keystore for secrets on desktop.
 - HTTP client for the real API, and a local backend for running without a server: the workspace starts
-  empty and is kept in the device's storage; AI answers, key checks and connection tests are simulated.
+  empty and is kept in the device's storage; integrations and provider keys cannot be connected and say so,
+  and AI answers are built-in examples.
   `?sample` loads the sample workspace instead.
 - A tour for every page, shown the first time the page is opened and from the header's ? button.
 
@@ -42,7 +43,7 @@ _Last updated: 23 November 2026_
 | Check | Result |
 | --- | --- |
 | Backend tests (`backend`, `npm test`, real PostgreSQL 16 and Redis) | 59 passed |
-| Client unit tests (`npm test`) | 17 passed |
+| Client unit tests (`npm test`) | 18 passed |
 | Rust tests (`cargo test --workspace`) | 18 passed, including the server-token contract test |
 | Browser run against the real API (web) | 20 checks passed: activation, httpOnly cookies, persistence across reload, same-device second tab, second-device rejection, transfer by emailed code, old device locked out, deactivation |
 | Desktop app (Linux build) run against the real API | activated with a real key; session, device id and entitlement token stored in the OS keyring; relaunch opened straight into the workspace; with the API stopped it started offline on the signed token and cached data |

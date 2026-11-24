@@ -66,6 +66,7 @@ function Generator() {
         <Field label="Tone"><Seg name="Tone" value={tone} options={TONES} onChange={setTone} /></Field>
         <div className="note">Brand voice: {ws.profile.workspace && `${ws.profile.workspace} — `}{ws.brandVoice}.</div>
         <PrimaryButton disabled={busy} onClick={() => void generate()}>{busy ? 'Generating…' : 'Generate post'}</PrimaryButton>
+        {!s.backend!.canConnect && <div className="note">No AI provider is connected in this build. The draft is a built-in template, not written by a model.</div>}
       </Card>
       <Card kicker="02 · Edit and approve" tour="content-edit">
         {gen ? (

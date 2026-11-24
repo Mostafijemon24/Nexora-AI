@@ -162,7 +162,7 @@ export const TOUR: Record<ScreenId, TourStep[]> = {
     {
       target: 'int-list',
       title: 'Connect your tools',
-      body: 'AI providers, CRM, messaging and automation services. Filter by category, then choose Connect.',
+      body: 'AI providers, CRM, messaging and automation services. Filter by category, then choose Connect. Connecting needs a Nexora AI server, so it is switched off in a build that runs without one.',
     },
   ],
   settings: [
@@ -181,7 +181,7 @@ export const TOUR: Record<ScreenId, TourStep[]> = {
       target: 'set-panel',
       tabs: { setTab: 'ai' },
       title: 'AI providers',
-      body: 'Choose which provider handles each task, add its key and press Test.',
+      body: 'Choose which provider handles each task, add its key and press Test. Keys are stored on the Nexora AI server, so they can be added once a server is connected.',
     },
     {
       target: 'set-panel',

@@ -9,7 +9,7 @@ Each item says what is missing today and what is needed before it can be built.
 ## 1. Needed before real customers can use it
 
 - [ ] **Run the server in production.**
-  *Today:* the server has only run on a development machine; the published installers run without it: data stays on the device and AI is simulated.
+  *Today:* the server has only run on a development machine; the published installers run without it: data stays on the device, integrations and provider keys cannot be connected, and AI answers are built-in examples.
   *Needed:* hosting, a domain with https, a PostgreSQL database (Redis optional). Then set the
   repository variables `VITE_API_URL` and `NEXORA_LICENSE_PUBLIC_KEY` and re-run the
   *Release installers* workflow to produce installers that talk to the real server.

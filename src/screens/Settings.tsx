@@ -48,6 +48,7 @@ function AiTab() {
   const [filter, setFilter] = useState<'all' | 'free' | 'paid'>('all');
   const verified = (n: ProviderName) => ws.providers.find((p) => p.name === n)?.verified ?? false;
   const orReady = verified('OpenRouter');
+  const canConnect = s.backend!.canConnect;
   const off = s.isOffline();
 
   useEffect(() => {
@@ -111,22 +112,23 @@ function AiTab() {
       ))}
 
       <div className="card-kicker mt10">Provider keys · stored encrypted</div>
+      {!canConnect && <div className="hint13">This build runs without a Nexora AI server, so keys cannot be stored or verified yet.</div>}
       {PROVIDER_NAMES.map((name) => (
         <div key={name} className="row wrap center" style={{ padding: '4px 0' }}>
           <span style={{ width: 140 }}>{name}</span>
           <input
-            className="input" type="password" autoComplete="off" aria-label={`${name} API key`} style={{ flex: 1, minWidth: 160 }}
+            className="input" type="password" autoComplete="off" aria-label={`${name} API key`} style={{ flex: 1, minWidth: 160 }} disabled={!canConnect}
             placeholder={verified(name) ? 'Stored · enter a new key to replace' : 'API key'} value={keys[name] ?? ''}
             onChange={(e) => { setKeys({ ...keys, [name]: e.target.value }); if (verified(name)) setVerified(name, false); }}
           />
-          <Button disabled={testing === name} onClick={() => void test(name)}>{testing === name ? 'Testing…' : 'Test'}</Button>
+          <Button disabled={testing === name || !canConnect} onClick={() => void test(name)}>{testing === name ? 'Testing…' : 'Test'}</Button>
           <span className={`tag ${verified(name) ? 'tag-accent' : 'tag-neutral'}`} style={{ minWidth: 86, justifyContent: 'center' }}>{verified(name) ? 'Verified' : 'Not verified'}</span>
         </div>
       ))}
       <div className="note">Usage this month: {Math.round(usage.tokensThisMonth / 1000)}k tokens · est. ${usage.costThisMonthUsd.toFixed(2)}</div>
 
       <div className="card-kicker mt10">OpenRouter models</div>
-      {!orReady && <div className="hint13">Add your OpenRouter key above and press Test to load the model list.</div>}
+      {!orReady && <div className="hint13">{canConnect ? 'Add your OpenRouter key above and press Test to load the model list.' : 'The model list loads once an OpenRouter key is verified.'}</div>}
       {orReady && (
         <>
           <div className="row wrap center" style={{ gap: 10 }}>

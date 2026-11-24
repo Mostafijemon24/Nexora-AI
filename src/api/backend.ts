@@ -25,6 +25,11 @@ export interface AiText { text: string; notice?: string }
 export interface Backend {
   /** True for the in-memory development backend. Never true in a production build with VITE_API_URL set. */
   readonly demo: boolean;
+  /**
+   * False when no server is behind the app: nothing can hold credentials or call a provider, so
+   * integrations and provider keys cannot be connected, and AI answers are built-in examples.
+   */
+  readonly canConnect: boolean;
 
   license: {
     status(device: DeviceInfo): Promise<LicenseStatus>;

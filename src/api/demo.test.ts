@@ -36,9 +36,21 @@ describe('local backend', () => {
     expect(a.text).toMatch(/no leads/i);
   });
 
-  it('keeps sample data available on request', async () => {
-    const ws = await createDemoBackend(() => NOW, true).workspace.load();
-    expect(ws.leads.length).toBeGreaterThan(0);
+  it('refuses to connect anything without a server', async () => {
+    const b = local();
+    expect(b.canConnect).toBe(false);
+    await expect(b.integrations.connect('li')).rejects.toThrow(/not connected to a Nexora AI server/);
+    await expect(b.providers.verifyKey('OpenAI', 'sk-anything')).rejects.toThrow(/not connected to a Nexora AI server/);
+    const ws = await b.workspace.load();
+    expect(ws.integrations.some((g) => g.connected) || ws.providers.some((p) => p.verified)).toBe(false);
+  });
+
+  it('keeps sample data, with simulated connections, available on request', async () => {
+    const b = createDemoBackend(() => NOW, true);
+    expect((await b.workspace.load()).leads.length).toBeGreaterThan(0);
+    expect(b.canConnect).toBe(true);
+    await b.integrations.connect('li');
+    expect((await b.workspace.load()).integrations.find((g) => g.id === 'li')?.connected).toBe(true);
   });
 });
 

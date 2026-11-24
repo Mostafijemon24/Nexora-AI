@@ -49,6 +49,7 @@ export function Integrations() {
     }
   };
 
+  const canConnect = s.backend!.canConnect;
   const connect = (g: Integration) => {
     if (s.needsNet('Connecting')) return;
     s.confirm({
@@ -106,6 +107,14 @@ export function Integrations() {
           <div><h5>Not included</h5><div className="hint13">Credential collection · scraping · automated clicking · private inbox extraction</div></div>
         </div>
       </Card>
+      {!canConnect && (
+        <Card kicker="Connections need a server">
+          <div className="hint13">
+            This build runs without a Nexora AI server, so the services below cannot be connected yet. Signing in to LinkedIn or a CRM,
+            and storing an API key, both happen on the server. Importing leads from a CSV works now.
+          </div>
+        </Card>
+      )}
       <Seg name="Category" value={cat} options={CATS} onChange={setCat} wrap style={{ alignSelf: 'flex-start' }} />
       <div className="grid g240fill" data-tour="int-list">
         {ws.integrations.filter((g) => cat === 'All' || g.cat === cat).map((g) => (
@@ -123,7 +132,7 @@ export function Integrations() {
                   <Button variant="ghost" onClick={() => disconnect(g)}>Disconnect</Button>
                 </>
               ) : (
-                <Button onClick={() => connect(g)}>Connect</Button>
+                <Button disabled={!canConnect} title={canConnect ? undefined : 'Needs a Nexora AI server'} onClick={() => connect(g)}>Connect</Button>
               )}
             </div>
           </Card>

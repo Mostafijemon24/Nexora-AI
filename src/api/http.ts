@@ -57,6 +57,7 @@ export function createHttpBackend(baseUrl: string, opts: HttpOptions): Backend {
 
   return {
     demo: false,
+    canConnect: true,
     license: {
       status: (device) => post('/v1/license/status', { device }),
       activate: async (key, device) => keep(await post<ActivationResult>('/v1/license/activate', { key, device })),
