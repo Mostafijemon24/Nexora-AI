@@ -84,6 +84,7 @@ const Schemas = {
     offlineCache: z.boolean(), conflict: z.enum(['ask', 'latest', 'cloud']), lastBackupAt: z.string().optional(),
   }),
   security: z.object({ mfa: z.boolean() }),
+  publishing: z.object({ auto: z.boolean() }),
 } as const;
 
 type Entity = keyof typeof Schemas;
@@ -133,7 +134,7 @@ async function applyOne(ctx: Ctx, q: Q, auth: Auth, raw: unknown): Promise<After
     case 'post': {
       const p = d as z.infer<typeof Schemas.post>;
       const before = (await q.query('SELECT status FROM posts WHERE id = $1 AND workspace_id = $2', [p.id, w])).rows[0];
-      await upsert(q, 'posts', w, p.id, { title: p.title, body: p.body, status: p.status, date: p.date });
+      await upsert(q, 'posts', w, p.id, { title: p.title, body: p.body, status: p.status, date: p.date, publish_error: null });
       if (before && before.status !== p.status) after.events.push({ kind: 'post.status_changed', postId: p.id, to: p.status, label: p.title });
       break;
     }
@@ -200,6 +201,7 @@ async function applyOne(ctx: Ctx, q: Q, auth: Auth, raw: unknown): Promise<After
       await q.query('UPDATE workspaces SET sync = $1 WHERE id = $2', [j(s), w]);
       break;
     }
+    case 'publishing': await q.query('UPDATE workspaces SET auto_publish = $1 WHERE id = $2', [(d as z.infer<typeof Schemas.publishing>).auto, w]); break;
     case 'security': await q.query('UPDATE workspaces SET mfa = $1 WHERE id = $2', [(d as z.infer<typeof Schemas.security>).mfa, w]); break;
   }
   return after;

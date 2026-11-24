@@ -69,6 +69,13 @@ export interface Backend {
      */
     connect(id: string, input?: string | Record<string, string>): Promise<{ redirectUrl?: string; details?: ConnectDetail[] }>;
     disconnect(id: string): Promise<void>;
+    /** Exchanges data with a connected system now (CRM, calendar, mailbox). */
+    sync(id: string): Promise<{ ok: boolean; note: string }>;
+  };
+
+  posts: {
+    /** Publishes an approved post to LinkedIn through the official API. Returns its address there. */
+    publish(id: string): Promise<{ url: string }>;
   };
 
   providers: {

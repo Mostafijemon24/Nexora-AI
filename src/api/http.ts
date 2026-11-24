@@ -89,7 +89,9 @@ export function createHttpBackend(baseUrl: string, opts: HttpOptions): Backend {
       test: (id) => post(`/v1/integrations/${encodeURIComponent(id)}/test`),
       connect: (id, input) => post(`/v1/integrations/${encodeURIComponent(id)}/connect`, typeof input === 'string' ? (input ? { apiKey: input } : {}) : input ? { fields: input } : {}),
       disconnect: (id) => call('DELETE', `/v1/integrations/${encodeURIComponent(id)}`),
+      sync: (id) => post(`/v1/integrations/${encodeURIComponent(id)}/sync`),
     },
+    posts: { publish: (id) => post(`/v1/posts/${encodeURIComponent(id)}/publish`) },
     providers: {
       verifyKey: async (name, key) => (await post<{ verified: boolean }>('/v1/ai/providers/verify', { name, key })).verified,
       openRouterModels: () => get('/v1/ai/openrouter/models'),

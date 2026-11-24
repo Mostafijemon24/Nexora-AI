@@ -78,8 +78,8 @@ export async function hookReceive(ctx: Ctx, token: string, body: Record<string, 
 interface MailState extends Record<string, unknown> { imapValidity?: string | null; imapLastUid?: number | null }
 
 /** Background job: brings new mail from every connected mailbox into its workspace's inbox. */
-export async function pollMailboxes(ctx: Ctx): Promise<number> {
-  const rows = (await ctx.db.query("SELECT workspace_id FROM integration_connections WHERE integration_id = 'em'")).rows;
+export async function pollMailboxes(ctx: Ctx, onlyWorkspace?: string): Promise<number> {
+  const rows = (await ctx.db.query("SELECT workspace_id FROM integration_connections WHERE integration_id = 'em' AND ($1::uuid IS NULL OR workspace_id = $1)", [onlyWorkspace ?? null])).rows;
   let total = 0;
   for (const { workspace_id: w } of rows) {
     try {

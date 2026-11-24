@@ -395,6 +395,7 @@ export function createDemoBackend(now: () => Date = () => new Date(), sample = s
     const single = singletons[c.entity];
     if (single && c.op === 'upsert') (ws as unknown as Record<string, unknown>)[single] = c.data;
     if (c.entity === 'security' && c.op === 'upsert') ws.mfa = (c.data as { mfa: boolean }).mfa;
+    if (c.entity === 'publishing' && c.op === 'upsert') ws.autoPublish = (c.data as { auto: boolean }).auto;
     return none;
   };
 
@@ -544,6 +545,24 @@ export function createDemoBackend(now: () => Date = () => new Date(), sample = s
         const g = ws.integrations.find((x) => x.id === id);
         if (g) g.connected = false;
         store();
+      },
+      async sync() {
+        if (!sample) throw new Error(NO_SERVER);
+        await wait(600);
+        return { ok: true, note: 'Everything is up to date' };
+      },
+    },
+    posts: {
+      async publish(id) {
+        if (!sample) throw new Error(NO_SERVER);
+        await wait(600);
+        const p = ws.posts.find((x) => x.id === id);
+        if (!p) throw new Error('That post does not exist.');
+        if (p.status !== 'Approved' && p.status !== 'Scheduled') throw new Error('Approve the post before publishing it.');
+        p.status = 'Published';
+        p.date = p.date ?? toIsoDate(now());
+        p.publishedUrl = 'https://www.linkedin.com/feed/';
+        return { url: p.publishedUrl };
       },
     },
     providers: {

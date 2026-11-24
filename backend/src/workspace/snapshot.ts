@@ -68,7 +68,8 @@ export async function loadSnapshot(ctx: Ctx, auth: Auth, q: Q = ctx.db): Promise
     campaigns: await loadCampaigns(q, w),
     icp: ws.icp,
     prompts: await one('SELECT id, title, text FROM prompts WHERE workspace_id = $1 ORDER BY created_at, id'),
-    posts: await one('SELECT id, title, body, status, date FROM posts WHERE workspace_id = $1 ORDER BY created_at DESC, id'),
+    posts: (await one('SELECT id, title, body, status, date, published_url, publish_error FROM posts WHERE workspace_id = $1 ORDER BY created_at DESC, id'))
+      .map((p) => ({ id: p.id, title: p.title, body: p.body, status: p.status, date: p.date, ...(p.published_url ? { publishedUrl: p.published_url } : {}), ...(p.publish_error ? { publishError: p.publish_error } : {}) })),
     conversations: await loadConversations(q, w),
     savedReplies: await one('SELECT title, text FROM saved_replies WHERE workspace_id = $1 ORDER BY position, id'),
     workflows: await loadWorkflows(q, w),
@@ -88,6 +89,7 @@ export async function loadSnapshot(ctx: Ctx, auth: Auth, q: Q = ctx.db): Promise
     sync: { ...(ws.sync as Omit<SyncSettings, 'lastBackupAt'>), lastBackupAt: backup ? iso(backup.created_at) : '' },
     aiUsage: { postsGenerated: usage.posts, tokensThisMonth: usage.tokens, costThisMonthUsd: usage.cost },
     brandVoice: ws.brand_voice,
+    autoPublish: ws.auto_publish,
     automationDailyRunLimit: ws.automation_daily_run_limit,
   };
 }

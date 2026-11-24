@@ -5,6 +5,8 @@ import type { Integration } from '../lib/types';
 import { useApp, useWs } from '../state/store';
 
 const CATS = ['All', 'AI', 'CRM', 'Automation', 'Communication', 'Developer', 'Social'].map((c) => [c, c] as const);
+/** Connections that exchange data on their own every few minutes, and on request. */
+const SYNCABLE = ['hs', 'sf', 'gc', 'em'];
 const errText = (e: unknown) => (e instanceof Error ? e.message : 'unknown error');
 
 export function Integrations() {
@@ -12,6 +14,7 @@ export function Integrations() {
   const s = useApp();
   const [cat, setCat] = useState('All');
   const [testing, setTesting] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState<string | null>(null);
 
   const fileInput = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
@@ -46,6 +49,20 @@ export function Integrations() {
       s.notify(`${g.name} test failed: ${errText(e)}`);
     } finally {
       setTesting(null);
+    }
+  };
+
+  const sync = async (g: Integration) => {
+    if (s.needsNet('Syncing')) return;
+    setSyncing(g.id);
+    try {
+      const r = await s.backend!.integrations.sync(g.id);
+      s.notify(`${g.name}: ${r.note}`);
+      await s.refresh();
+    } catch (e) {
+      s.notify(`${g.name} sync failed: ${errText(e)}`);
+    } finally {
+      setSyncing(null);
     }
   };
 
@@ -140,7 +157,8 @@ export function Integrations() {
             <div className="row wrap" style={{ gap: 6 }}>
               {g.connected ? (
                 <>
-                  <Button disabled={testing === g.id} onClick={() => void test(g)}>{testing === g.id ? 'Testing…' : 'Test connection'}</Button>
+                  {!g.hook && <Button disabled={testing === g.id} onClick={() => void test(g)}>{testing === g.id ? 'Testing…' : 'Test connection'}</Button>}
+                  {SYNCABLE.includes(g.id) && <Button disabled={syncing === g.id} onClick={() => void sync(g)}>{syncing === g.id ? 'Syncing…' : 'Sync now'}</Button>}
                   <Button variant="ghost" onClick={() => disconnect(g)}>Disconnect</Button>
                 </>
               ) : (

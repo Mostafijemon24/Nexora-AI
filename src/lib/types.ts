@@ -81,6 +81,10 @@ export interface Post {
   status: PostStatus;
   /** Calendar day as YYYY-MM-DD, or null when unscheduled. */
   date: string | null;
+  /** Where the post is on LinkedIn, once the server has published it there. */
+  publishedUrl?: string;
+  /** Why the last attempt to publish it failed. */
+  publishError?: string;
 }
 
 export type Tone = 'Direct' | 'Story' | 'Data';
@@ -234,6 +238,8 @@ export interface WorkspaceSnapshot {
   aiUsage: AiUsage;
   brandVoice: string;
   automationDailyRunLimit: number;
+  /** Publish approved posts to LinkedIn by themselves on the day they are scheduled for. */
+  autoPublish?: boolean;
 }
 
 export interface DashboardMetrics {

@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Button, Card, ErrorText, Field, PrimaryButton, Seg, TextField } from '../components/ui';
+import { Button, Card, ErrorText, Field, PrimaryButton, Seg, Switch, TextField } from '../components/ui';
 import { addDays, dayLabel, toIsoDate, weekOf } from '../lib/dates';
 import { NEXT_ACTION, excerpt, leastLoadedDay, schedulableDays, statusTag } from '../lib/posts';
 import type { GeneratedPost, Post, Tone } from '../lib/types';
+import { bridge } from '../platform/bridge';
 import { change, newId, remove, useApp, useWs } from '../state/store';
 
 const TABS = [['gen', 'Generator'], ['posts', 'Posts'], ['cal', 'Calendar']] as const;
@@ -108,6 +109,28 @@ function Posts() {
     }
     up(p.id, { status: a.next }, 'Marked as published');
   };
+  const linkedIn = Boolean(ws.integrations.find((g) => g.id === 'li')?.connected);
+  const [publishing, setPublishing] = useState<string | null>(null);
+  const publish = (p: Post) => {
+    if (s.needsNet('Publishing')) return;
+    s.confirm({
+      title: 'Publish to LinkedIn?', confirm: 'Publish',
+      body: `“${p.title}” will be posted publicly on your LinkedIn profile now. This cannot be undone from here.`,
+      run: async () => {
+        setPublishing(p.id);
+        try {
+          const { url } = await s.backend!.posts.publish(p.id);
+          s.update((x) => ({ posts: x.posts.map((y) => (y.id === p.id ? { ...y, status: 'Published', publishedUrl: url, publishError: undefined } : y)) }));
+          s.notify('Published to LinkedIn');
+        } catch (e) {
+          s.notify(`Could not publish: ${e instanceof Error ? e.message : 'unknown error'}`);
+        } finally {
+          setPublishing(null);
+          void s.refresh();
+        }
+      },
+    });
+  };
   const del = (p: Post) => s.confirm({
     title: 'Delete post?', body: `“${p.title}” will be removed from this workspace.`, confirm: 'Delete',
     run: () => { s.update((x) => ({ posts: x.posts.filter((y) => y.id !== p.id) })); s.commit('Post deleted', remove('post', p.id)); },
@@ -122,11 +145,18 @@ function Posts() {
             const a = NEXT_ACTION[p.status];
             return (
               <tr key={p.id}>
-                <td style={{ minWidth: 220 }}><div className="strong">{p.title}</div><div className="note">{excerpt(p.body)}</div></td>
+                <td style={{ minWidth: 220 }}>
+                  <div className="strong">{p.title}</div><div className="note">{excerpt(p.body)}</div>
+                  {p.publishError && <div className="note" style={{ color: 'var(--color-error, #b3261e)' }}>Not published: {p.publishError}</div>}
+                </td>
                 <td><span className={statusTag(p.status)}>{p.status}</span></td>
                 <td style={{ whiteSpace: 'nowrap' }}>{p.date ? dayLabel(p.date) : '—'}</td>
                 <td>
                   <div className="row" style={{ gap: 6, justifyContent: 'flex-end' }}>
+                    {linkedIn && (p.status === 'Approved' || p.status === 'Scheduled') && (
+                      <PrimaryButton disabled={publishing === p.id} onClick={() => publish(p)} style={{ whiteSpace: 'nowrap' }}>{publishing === p.id ? 'Publishing…' : 'Publish to LinkedIn'}</PrimaryButton>
+                    )}
+                    {p.publishedUrl && <Button onClick={() => void bridge.openExternal(p.publishedUrl!)} style={{ whiteSpace: 'nowrap' }}>View on LinkedIn</Button>}
                     {a && <Button onClick={() => advance(p)} style={{ whiteSpace: 'nowrap' }}>{a.label}</Button>}
                     <Button variant="ghost" onClick={() => del(p)}>Delete</Button>
                   </div>
@@ -137,7 +167,18 @@ function Posts() {
           {!ws.posts.length && <tr><td colSpan={4} className="muted">No posts yet. Generate one to start.</td></tr>}
         </tbody>
       </table>
-      <div className="note">Publishing is a manual reminder unless an approved LinkedIn API scope is connected.</div>
+      {linkedIn ? (
+        <label className="row center" style={{ gap: 10, cursor: 'pointer' }}>
+          <Switch on={Boolean(ws.autoPublish)} label="Publish scheduled posts to LinkedIn on their day" onChange={() => {
+            const auto = !ws.autoPublish;
+            s.update(() => ({ autoPublish: auto }));
+            s.commit(auto ? 'Scheduled posts will be published to LinkedIn on their day' : 'Scheduled posts will wait for you to publish them', change('publishing', 'publishing', { auto }));
+          }} />
+          <span className="hint13">Publish scheduled posts to LinkedIn by themselves on their day. Off: each post waits for you to press Publish.</span>
+        </label>
+      ) : (
+        <div className="note">LinkedIn is not connected, so “Mark published” is a reminder for a post you published yourself. Connect LinkedIn on the Integrations page to publish approved posts from here.</div>
+      )}
     </Card>
   );
 }

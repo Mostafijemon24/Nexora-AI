@@ -9,6 +9,8 @@ import * as inbound from './inbound.ts';
 import * as integrations from './integrations.ts';
 import * as license from './license/service.ts';
 import type { Auth, Client } from './license/service.ts';
+import { syncNow } from './sync/index.ts';
+import { publishPost } from './sync/linkedin.ts';
 import { applyChange } from './workspace/changes.ts';
 import { importLeadsFor } from './workspace/leads.ts';
 import { loadLeads, loadMetrics, loadSnapshot, PROVIDERS } from './workspace/snapshot.ts';
@@ -170,6 +172,8 @@ export function createApp(ctx: Ctx) {
     const b = await c.req.json().catch(() => ({}));
     return c.json(await integrations.connect(ctx, c.get('auth'), c.req.param('id'), b?.fields && typeof b.fields === 'object' ? b.fields : b?.apiKey));
   });
+  app.post('/v1/integrations/:id/sync', async (c) => c.json(await syncNow(ctx, c.get('auth').workspaceId, c.req.param('id'))));
+  app.post('/v1/posts/:id/publish', async (c) => c.json(await publishPost(ctx, c.get('auth').workspaceId, c.req.param('id'))));
   app.delete('/v1/integrations/:id', async (c) => { await integrations.disconnect(ctx, c.get('auth'), c.req.param('id')); return c.body(null, 204); });
 
   app.post('/v1/backups', async (c) => {
