@@ -8,7 +8,9 @@ import { Communication } from './screens/Communication';
 import { ContentStudio } from './screens/ContentStudio';
 import { Dashboard } from './screens/Dashboard';
 import { Integrations } from './screens/Integrations';
+import { Leads } from './screens/Leads';
 import { LicenseGate } from './screens/LicenseGate';
+import { Reports } from './screens/Reports';
 import { Settings } from './screens/Settings';
 import { PreviewChrome, Shell } from './shell/Shell';
 import { TITLES } from './shell/nav';
@@ -20,10 +22,12 @@ function Screen() {
   const [customizing, setCustomizing] = useState(false);
   switch (screen) {
     case 'dashboard': return <Dashboard customizing={customizing} setCustomizing={setCustomizing} />;
+    case 'leads': return <Leads />;
     case 'ai': return <AiIntelligence />;
     case 'content': return <ContentStudio />;
     case 'inbox': return <Communication />;
     case 'automation': return <Automation />;
+    case 'reports': return <Reports />;
     case 'integrations': return <Integrations />;
     case 'settings': return <Settings />;
   }
@@ -66,6 +70,15 @@ export function App() {
     window.addEventListener('offline', down);
     return () => window.removeEventListener('offline', down);
   }, []);
+
+  // Picks up what the server did on its own: incoming messages, workflow runs, synced records.
+  useEffect(() => {
+    if (boot !== 'ready') return;
+    const poll = () => { if (document.visibilityState === 'visible') void useApp.getState().refresh(); };
+    const timer = setInterval(poll, 30_000);
+    document.addEventListener('visibilitychange', poll);
+    return () => { clearInterval(timer); document.removeEventListener('visibilitychange', poll); };
+  }, [boot]);
 
   useEffect(() => {
     document.title = boot === 'ready' ? `${TITLES[screen]} · Nexora AI` : 'Nexora AI';

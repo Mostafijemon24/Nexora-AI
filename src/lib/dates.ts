@@ -63,3 +63,14 @@ export function backupTime(iso: string, now = new Date()): string {
   const hm = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
   return dayDiff === 0 ? `Today ${hm}` : dayDiff === 1 ? `Yesterday ${hm}` : `${shortDate(d)} ${hm}`;
 }
+
+/** "Today", "Tomorrow", "Yesterday" or a short date for a task's due day; the older free-text label otherwise. */
+export function dueLabel(t: { due: string; dueDate?: string | null }, now = new Date()): string {
+  if (!t.dueDate) return t.due;
+  const today = toIsoDate(now);
+  if (t.dueDate === today) return 'Today';
+  if (t.dueDate === addDays(today, 1)) return 'Tomorrow';
+  if (t.dueDate === addDays(today, -1)) return 'Yesterday';
+  const d = fromIsoDate(t.dueDate);
+  return `${d.getDate()} ${MONTHS[d.getMonth()].slice(0, 3)}`;
+}

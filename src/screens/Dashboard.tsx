@@ -1,5 +1,6 @@
 import { Card, CardButton, Seg, Button } from '../components/ui';
-import { greeting, longDate, relTime } from '../lib/dates';
+import { funnel, inRange } from '../lib/analytics';
+import { dueLabel, greeting, longDate, relTime, toIsoDate } from '../lib/dates';
 import type { Range } from '../lib/types';
 import { change, firstName, useApp, useWs, type WidgetId } from '../state/store';
 
@@ -19,9 +20,12 @@ export function Dashboard({ customizing, setCustomizing }: { customizing: boolea
   const now = new Date();
   const off = s.isOffline();
 
+  // Counted here, from the leads on screen, so a stage change shows at once.
+  const stages = funnel(ws.leads.filter((l) => inRange(l.createdAt, s.range, now)));
+  const today = toIsoDate(now);
   const unread = ws.conversations.filter((c) => c.unread).length;
   const kpis = [
-    { label: 'New leads', value: m ? m.funnel[0] : '—', meta: 'Open lead scoring', go: () => s.go('ai', { aiTab: 'scoring' }) },
+    { label: 'New leads', value: stages[0], meta: 'Open leads', go: () => s.go('leads', { leadsTab: 'list' }) },
     { label: 'Unread conversations', value: unread, meta: 'Open inbox', go: () => s.go('inbox') },
     { label: 'Scheduled posts', value: ws.posts.filter((p) => p.status === 'Scheduled').length, meta: 'Open calendar', go: () => s.go('content', { csTab: 'cal' }) },
     { label: 'Active workflows', value: ws.workflows.filter((f) => f.on).length, meta: 'Open automation', go: () => s.go('automation') },
@@ -99,16 +103,14 @@ export function Dashboard({ customizing, setCustomizing }: { customizing: boolea
         )}
         {w.funnel && (
           <Card kicker="Lead funnel">
-            {m ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 6 }}>
-                {FUNNEL.map((label, i) => (
-                  <div key={label}>
-                    <div className="between" style={{ fontSize: 13 }}><span>{label}</span><span>{m.funnel[i]}</span></div>
-                    <div className="meter"><i style={{ width: `${m.funnel[0] ? Math.round((m.funnel[i] / m.funnel[0]) * 100) : 0}%` }} /></div>
-                  </div>
-                ))}
-              </div>
-            ) : noData}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 6 }}>
+              {FUNNEL.map((label, i) => (
+                <div key={label}>
+                  <div className="between" style={{ fontSize: 13 }}><span>{label}</span><span>{stages[i]}</span></div>
+                  <div className="meter"><i style={{ width: `${stages[0] ? Math.round((stages[i] / stages[0]) * 100) : 0}%` }} /></div>
+                </div>
+              ))}
+            </div>
           </Card>
         )}
         {w.tasks && (
@@ -117,10 +119,10 @@ export function Dashboard({ customizing, setCustomizing }: { customizing: boolea
               <label key={t.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '6px 0', borderBottom: '1px solid var(--line2)', cursor: 'pointer' }}>
                 <input type="checkbox" checked={t.done} onChange={() => toggleTask(t.id)} style={{ accentColor: 'var(--color-accent)', marginTop: 3 }} />
                 <span style={{ flex: 1, textDecoration: t.done ? 'line-through' : 'none', opacity: t.done ? 0.5 : 1 }}>{t.text}</span>
-                <span className="note">{t.due}</span>
+                <span className="note" style={{ whiteSpace: 'nowrap', color: !t.done && t.dueDate && t.dueDate < today ? 'var(--color-error, #b3261e)' : undefined }}>{dueLabel(t, now)}</span>
               </label>
             ))}
-            {!ws.tasks.length && <div className="hint13">No tasks. Create a follow-up from any conversation.</div>}
+            {!ws.tasks.length && <div className="hint13">No tasks. Create a follow-up from a lead or a conversation, or let a workflow create them.</div>}
           </Card>
         )}
         {w.ai && (

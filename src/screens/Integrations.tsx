@@ -21,10 +21,9 @@ export function Integrations() {
     try {
       const r = await s.backend!.leads.importCsv(await file.text());
       s.update(() => ({ leads: r.leads }));
-      s.set({ metrics: {} });
-      void s.setRange(s.range);
       const skipped = r.skipped ? ` · ${r.skipped} skipped (no name or company)` : '';
       s.commit(`${r.imported} lead${r.imported === 1 ? '' : 's'} imported from CSV${skipped}`);
+      void s.refresh(); // an import can start workflows
     } catch (e) {
       s.notify(`Import failed: ${errText(e)}`);
     } finally {
@@ -100,7 +99,7 @@ export function Integrations() {
             <h5>Manual, user-controlled</h5>
             <div className="hint13">CSV lead import · message drafts · connection, publishing and follow-up reminders</div>
             <input ref={fileInput} type="file" accept=".csv,text/csv" hidden onChange={(e) => void importLeads(e.target.files?.[0])} />
-            <Button disabled={importing} onClick={() => fileInput.current?.click()} style={{ marginTop: 8 }} title="Header row: name, company, title, industry, size, country">
+            <Button disabled={importing} onClick={() => fileInput.current?.click()} style={{ marginTop: 8 }} title="Header row: name, company, then any of title, industry, size, country, email, phone, linkedin, tags, stage">
               {importing ? 'Importing…' : 'Import leads from CSV'}
             </Button>
           </div>

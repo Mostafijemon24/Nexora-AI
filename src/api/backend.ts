@@ -43,8 +43,11 @@ export interface Backend {
   workspace: {
     load(): Promise<WorkspaceSnapshot>;
     metrics(range: Range): Promise<DashboardMetrics>;
-    /** Applies writes in order. Each change id is an idempotency key: replays are no-ops. */
-    push(changes: Change[]): Promise<void>;
+    /**
+     * Applies writes in order. Each change id is an idempotency key: replays are no-ops.
+     * `effects` is true when the write set more in motion (a workflow ran, a reply was delivered), so the workspace should be reloaded.
+     */
+    push(changes: Change[]): Promise<{ effects: boolean }>;
   };
 
   ai: {

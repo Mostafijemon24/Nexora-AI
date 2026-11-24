@@ -130,7 +130,10 @@ export function createApp(ctx: Ctx) {
     if (range !== '7d' && range !== '30d' && range !== '90d') throw badRequest('range must be 7d, 30d or 90d.');
     return c.json(await loadMetrics(ctx, c.get('auth'), range as Range));
   });
-  app.post('/v1/workspace/changes', async (c) => { await applyChange(ctx, c.get('auth'), await json(c)); return c.body(null, 204); });
+  app.post('/v1/workspace/changes', async (c) => {
+    const r = await applyChange(ctx, c.get('auth'), await json(c));
+    return r.effects ? c.json(r) : c.body(null, 204);
+  });
 
   app.post('/v1/leads/import', async (c) => {
     const auth = c.get('auth');

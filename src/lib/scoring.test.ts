@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { rankLeads, scoreLead } from './scoring';
-import type { Icp, Lead } from './types';
+import { newLead, type Icp, type Lead } from './types';
 
 const icp: Icp = { industry: 'Marketing', title: 'Founder, CEO', sizeMin: '10', sizeMax: '100', location: 'United States' };
-const lead = (o: Partial<Lead>): Lead => ({ id: '1', name: 'A', title: 'Founder', company: 'C', industry: 'Marketing', size: 42, country: 'United States', ...o });
+const lead = (o: Partial<Lead>): Lead => newLead('1', 'A', 'C', '2026-11-23T09:00:00Z', { title: 'Founder', industry: 'Marketing', size: 42, country: 'United States', ...o });
 
 describe('scoreLead', () => {
   it('gives a full match 100 with full confidence', () => {

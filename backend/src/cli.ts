@@ -19,7 +19,7 @@ const HELP = `Nexora AI backend
   license:revoke --key K              revoke a license and sign out every device
   license:renew  --key K [--months 1] extend a license
   leads:import --workspace ID --file leads.csv
-                                      import leads from CSV with the header: name,title,company,industry,size,country
+                                      import leads from CSV; header: name,company[,title,industry,size,country,email,phone,linkedin,tags,stage]
 `;
 
 async function main() {

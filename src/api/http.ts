@@ -71,7 +71,12 @@ export function createHttpBackend(baseUrl: string, opts: HttpOptions): Backend {
       metrics: (range) => get(`/v1/workspace/metrics?range=${range}`),
       push: async (changes) => {
         // Sent one at a time and in order; each id is its idempotency key, so a retry cannot duplicate.
-        for (const c of changes) await call('POST', '/v1/workspace/changes', c, { 'Idempotency-Key': c.id });
+        let effects = false;
+        for (const c of changes) {
+          const r = await call<{ effects?: boolean } | undefined>('POST', '/v1/workspace/changes', c, { 'Idempotency-Key': c.id });
+          if (r?.effects) effects = true;
+        }
+        return { effects };
       },
     },
     ai: {

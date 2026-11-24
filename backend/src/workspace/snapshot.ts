@@ -1,11 +1,14 @@
 import type {
-  AiTask, Conversation, DashboardMetrics, Integration, Lead, OpenRouterSettings, ProviderName, Range, SyncSettings, WorkspaceSnapshot,
+  AiTask, DashboardMetrics, Integration, OpenRouterSettings, ProviderName, Range, SyncSettings, WorkspaceSnapshot,
 } from '../../../src/lib/types.ts';
 import type { Ctx } from '../context.ts';
 import type { Q } from '../db.ts';
 import { notFound } from '../errors.ts';
 import { CATALOG } from '../integrations.ts';
 import type { Auth } from '../license/service.ts';
+import { loadCampaigns, loadConversations, loadLeads, loadRuns, loadTasks, loadWorkflows } from './store.ts';
+
+export { loadConversations, loadLeads };
 
 export const PROVIDERS: ProviderName[] = ['OpenAI', 'Google Gemini', 'Anthropic Claude', 'OpenRouter'];
 const iso = (d: Date | string) => new Date(d).toISOString();
@@ -17,17 +20,6 @@ function ago(then: Date, now: Date): string {
   if (s < 86_400) { const h = Math.round(s / 3600); return `${h} hour${h === 1 ? '' : 's'} ago`; }
   const d = Math.round(s / 86_400);
   return `${d} day${d === 1 ? '' : 's'} ago`;
-}
-
-export async function loadLeads(q: Q, workspaceId: string): Promise<Lead[]> {
-  const r = await q.query('SELECT id, name, title, company, industry, size, country FROM leads WHERE workspace_id = $1 ORDER BY created_at, id', [workspaceId]);
-  return r.rows;
-}
-
-export async function loadConversations(q: Q, workspaceId: string): Promise<Conversation[]> {
-  const r = await q.query(
-    'SELECT id, name, company, channel, unread, important, intent, sentiment, suggestion, msgs, notes FROM conversations WHERE workspace_id = $1 ORDER BY created_at, id', [workspaceId]);
-  return r.rows;
 }
 
 /** Connection state for every integration in the catalog. AI entries mirror the provider keys. */
@@ -68,17 +60,16 @@ export async function loadSnapshot(ctx: Ctx, auth: Auth, q: Q = ctx.db): Promise
     plan: { name: plan?.name ?? '', hosting: 'Hybrid hosting' },
     profile: { name: user.name, email: user.email, workspace: ws.name },
     leads: await loadLeads(q, w),
+    campaigns: await loadCampaigns(q, w),
     icp: ws.icp,
     prompts: await one('SELECT id, title, text FROM prompts WHERE workspace_id = $1 ORDER BY created_at, id'),
     posts: await one('SELECT id, title, body, status, date FROM posts WHERE workspace_id = $1 ORDER BY created_at DESC, id'),
     conversations: await loadConversations(q, w),
     savedReplies: await one('SELECT title, text FROM saved_replies WHERE workspace_id = $1 ORDER BY position, id'),
-    workflows: (await one('SELECT id, name, enabled, steps FROM workflows WHERE workspace_id = $1 ORDER BY created_at, id'))
-      .map((f) => ({ id: f.id, name: f.name, on: f.enabled, steps: f.steps })),
-    runs: (await one('SELECT id, workflow_id, name, steps, status, at FROM runs WHERE workspace_id = $1 ORDER BY at DESC, id LIMIT 50'))
-      .map((r) => ({ id: r.id, workflowId: r.workflow_id, name: r.name, steps: r.steps, status: r.status, at: iso(r.at) })),
+    workflows: await loadWorkflows(q, w),
+    runs: await loadRuns(q, w),
     integrations: await loadIntegrations(q, w),
-    tasks: await one('SELECT id, text, due, done FROM tasks WHERE workspace_id = $1 ORDER BY created_at DESC, id'),
+    tasks: await loadTasks(q, w),
     activity: (await one('SELECT text, at FROM activity WHERE workspace_id = $1 ORDER BY at DESC, id LIMIT 6')).map((a) => ({ text: a.text, at: iso(a.at) })),
     routing: ws.routing as Record<AiTask, ProviderName>,
     providers: PROVIDERS.map((name) => ({ name, verified: creds.some((c) => c.provider === name && c.verified) })),

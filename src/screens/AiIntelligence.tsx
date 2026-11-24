@@ -55,8 +55,8 @@ function Scoring() {
 
       {!lead && (
         <Card kicker="Leads ranked by match" tour="ai-leads">
-          <div className="muted">No leads yet. Import a CSV to score them against your criteria.</div>
-          <div><Button onClick={() => s.go('integrations')}>Open Integrations</Button></div>
+          <div className="muted">No leads yet. Add or import leads to score them against your criteria.</div>
+          <div><Button onClick={() => s.go('leads', { leadsTab: 'list' })}>Open Leads</Button></div>
         </Card>
       )}
       {lead && <Card kicker="Leads ranked by match" style={{ minWidth: 0, overflowX: 'auto' }} tour="ai-leads">

@@ -8,6 +8,9 @@ import type { Ctx } from '../context.ts';
 import { decrypt, encrypt } from '../crypto.ts';
 import { badRequest, HttpError, notFound } from '../errors.ts';
 import type { Auth } from '../license/service.ts';
+
+/** Who a request is for. Background work (a workflow run) has no license to record usage against. */
+export type AiScope = Pick<Auth, 'workspaceId'> & { licenseId: string | null };
 import { loadConversations, loadLeads } from '../workspace/snapshot.ts';
 import { allProviders, openRouterModels, ProviderError, type ChatMessage, type Completion } from './providers.ts';
 
@@ -61,7 +64,7 @@ async function workspaceAi(ctx: Ctx, workspaceId: string) {
 
 interface RunResult { text: string; notice?: string }
 
-async function run(ctx: Ctx, auth: Auth, task: AiTask, kind: Kind, system: string, messages: ChatMessage[], maxTokens: number): Promise<RunResult> {
+async function run(ctx: Ctx, auth: AiScope, task: AiTask, kind: Kind, system: string, messages: ChatMessage[], maxTokens: number): Promise<RunResult> {
   if (!(await ctx.limiter.allow(`ai:${auth.workspaceId}`, 60, 60))) throw new HttpError(429, 'rate_limited', 'Too many AI requests. Wait a minute and try again.');
   const ws = await workspaceAi(ctx, auth.workspaceId);
   const providerName = ws.routing[task];
@@ -174,8 +177,8 @@ export async function generatePost(ctx: Ctx, auth: Auth, raw: unknown): Promise<
   throw new HttpError(502, 'ai_bad_output', 'The model did not return a usable post. Try again.');
 }
 
-export async function draftMessage(ctx: Ctx, auth: Auth, leadId: string): Promise<RunResult> {
-  const lead = (await ctx.db.query('SELECT name, title, company, industry, size, country FROM leads WHERE id::text = $1 AND workspace_id = $2', [leadId, auth.workspaceId])).rows[0];
+export async function draftMessage(ctx: Ctx, auth: AiScope, leadId: string): Promise<RunResult> {
+  const lead = (await ctx.db.query('SELECT name, title, company, industry, size, country, tags FROM leads WHERE id::text = $1 AND workspace_id = $2', [leadId, auth.workspaceId])).rows[0];
   if (!lead) throw notFound('Lead not found.');
   const ws = await workspaceAi(ctx, auth.workspaceId);
   const system = `You write first-contact messages on behalf of ${ws.name}. Brand voice: ${ws.brand_voice}.\n${GROUND_RULES}\n`

@@ -2,6 +2,7 @@ import { CircleHelp, Globe, Minus, Moon, PanelLeft, Square, Sun, X } from 'lucid
 import type { ReactNode } from 'react';
 import logo from '../assets/logo.png';
 import { Button } from '../components/ui';
+import { UpdateNotice } from '../components/UpdateNotice';
 import { useApp } from '../state/store';
 import { NAV, TITLES } from './nav';
 
@@ -131,6 +132,7 @@ export function Shell({ children }: { children: ReactNode }) {
         {!compact && <Sidebar />}
         <div className="app-col">
           <Header />
+          <UpdateNotice />
           <main className="app-main">{children}</main>
         </div>
       </div>
