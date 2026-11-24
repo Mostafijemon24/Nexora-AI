@@ -2,15 +2,25 @@ name: CI
 
 on:
   workflow_dispatch:
+    inputs:
+      platforms:
+        description: Also build and start the app on Windows, macOS, Linux and Android (the Platforms workflow)
+        type: boolean
+        default: false
   push:
     branches: [main]
   pull_request:
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.ref }}${{ inputs.platforms && '-platforms' || '' }}
   cancel-in-progress: true
 
 jobs:
+  # Only when asked for from the Actions tab: the Platforms workflow, on the chosen branch.
+  platforms:
+    if: ${{ inputs.platforms }}
+    uses: ./.github/workflows/platforms.yml
+
   client:
     runs-on: ubuntu-latest
     steps:
