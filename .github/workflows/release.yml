@@ -18,6 +18,25 @@ name: Release installers
 #   APPLE_SIGNING_IDENTITY      e.g. "Developer ID Application: Your Name (TEAMID)"
 #   APPLE_ID, APPLE_PASSWORD, APPLE_TEAM_ID   Apple ID, an app-specific password, and the team ID (notarization)
 # The Windows installers are unsigned: Windows warns on first launch until a certificate is set up.
+#
+# Automatic updates (optional). Create a key pair once, on your own computer:
+#     npm run tauri signer generate -- -w ~/.tauri/nexora-updater.key
+#   Variable  TAURI_UPDATER_PUBKEY                 contents of nexora-updater.key.pub
+#   Secret    TAURI_SIGNING_PRIVATE_KEY            contents of nexora-updater.key
+#   Secret    TAURI_SIGNING_PRIVATE_KEY_PASSWORD   the password you chose (leave unset if none)
+# With both keys the installers check for a newer release when they start: the build also uploads
+# signed update packages and latest.json, which the apps read from the latest published release.
+# An installed app only sees a release with a higher version number (package.json,
+# src-tauri/tauri.conf.json and Cargo.toml), and only once that release is published, not a draft.
+# Keep the private key: if it is lost, installed apps can no longer be updated automatically.
+# Without the keys the installers are built exactly as before and never look for updates.
+#
+# Android (optional). With an upload keystore the workflow also attaches a signed .apk and an .aab
+# (for Google Play) to the release:
+#   Secret  ANDROID_KEYSTORE            base64 of the keystore file (.jks)
+#   Secret  ANDROID_KEYSTORE_PASSWORD   its password (the key uses the same one)
+#   Secret  ANDROID_KEY_ALIAS           the key's alias
+# Without them no Android file is released: a debug-signed APK is not safe to hand to users.
 
 on:
   workflow_dispatch:
@@ -70,6 +89,14 @@ jobs:
               { echo "$name<<NEXORA_ENV_EOF"; printf '%s\n' "$value"; echo "NEXORA_ENV_EOF"; } >> "$GITHUB_ENV"
             fi
           done
+      - name: Automatic updates (optional)
+        id: updater
+        shell: bash
+        env:
+          TAURI_UPDATER_PUBKEY: ${{ vars.TAURI_UPDATER_PUBKEY }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: bash src-tauri/updater/enable.sh
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -81,7 +108,9 @@ jobs:
           releaseBody: Desktop installers for Windows, macOS and Linux.
           releaseDraft: true
           prerelease: false
-          args: ${{ matrix.args }}
+          args: ${{ matrix.args }} ${{ steps.updater.outputs.args }}
+          # Only used when automatic updates are on: the setup .exe is what most people install.
+          updaterJsonPreferNsis: true
       - name: Check the macOS app signature
         if: startsWith(matrix.os, 'macos')
         run: |
@@ -89,3 +118,57 @@ jobs:
           test -n "$app" || { echo "Nexora AI.app was not built"; exit 1; }
           codesign --verify --deep --strict --verbose=2 "$app"
           codesign --display --verbose=2 "$app" 2>&1 | grep -E '^(Identifier|Signature|Authority|TeamIdentifier)'
+
+  # Signed Android app, only when the upload keystore is configured (see the notes at the top).
+  android:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Is the Android keystore configured?
+        id: keystore
+        env:
+          ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          if [ -n "$ANDROID_KEYSTORE" ] && [ -n "$ANDROID_KEYSTORE_PASSWORD" ] && [ -n "$ANDROID_KEY_ALIAS" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No Android keystore is configured: no Android app is released."
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.keystore.outputs.present == 'true'
+      - uses: actions/setup-node@v4
+        if: steps.keystore.outputs.present == 'true'
+        with: { node-version: 22, cache: npm }
+      - uses: actions/setup-java@v4
+        if: steps.keystore.outputs.present == 'true'
+        with: { distribution: temurin, java-version: 17 }
+      - uses: dtolnay/rust-toolchain@stable
+        if: steps.keystore.outputs.present == 'true'
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        if: steps.keystore.outputs.present == 'true'
+      - run: npm ci
+        if: steps.keystore.outputs.present == 'true'
+      - name: Build and sign
+        if: steps.keystore.outputs.present == 'true'
+        env:
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          NEXORA_LICENSE_PUBLIC_KEY: ${{ vars.NEXORA_LICENSE_PUBLIC_KEY }}
+          ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          printf '%s' "$ANDROID_KEYSTORE" | base64 --decode > "$RUNNER_TEMP/upload.jks"
+          ANDROID_KEYSTORE_FILE="$RUNNER_TEMP/upload.jks" bash src-tauri/android/build.sh release
+          rm -f "$RUNNER_TEMP/upload.jks"
+      - name: Attach to the release
+        if: steps.keystore.outputs.present == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version="$(node -p "require('./src-tauri/tauri.conf.json').version")"
+          gh release upload "v$version" src-tauri/gen/android/dist/*.apk src-tauri/gen/android/dist/*.aab --clobber

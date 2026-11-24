@@ -1,0 +1,16 @@
+[package]
+name = "tauri-plugin-nexora-keystore"
+description = "Nexora AI on Android: secrets encrypted with a key held in the Android Keystore."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+links = "tauri-plugin-nexora-keystore"
+build = "build.rs"
+
+[build-dependencies]
+tauri-plugin = { version = "2", features = ["build"] }
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2", features = [] }

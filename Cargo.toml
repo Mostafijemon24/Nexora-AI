@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/nexora-core", "src-tauri"]
+members = ["crates/nexora-core", "crates/tauri-plugin-nexora-keystore", "src-tauri"]
 
 [workspace.package]
 version = "1.0.0"

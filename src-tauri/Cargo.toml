@@ -27,3 +27,7 @@ uuid = { version = "1", features = ["v4"] }
 keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
 os_info = { version = "3", default-features = false }
 tauri-plugin-updater = "2"
+
+# Android: secrets are encrypted with a key held in the Android Keystore.
+[target.'cfg(target_os = "android")'.dependencies]
+tauri-plugin-nexora-keystore = { path = "../crates/tauri-plugin-nexora-keystore" }
