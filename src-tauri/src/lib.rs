@@ -3,14 +3,17 @@
 //! The UI never talks to the OS directly: everything goes through the typed commands below.
 //! Business rules live in `nexora-core`; this file only wires them to Tauri and the OS.
 
+mod files;
 mod secure;
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use nexora_core::{entitlement, Store};
 use serde::Serialize;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{Manager, State};
+use tauri_plugin_opener::OpenerExt;
 
 /// Names the UI may read or write in the secure store. Anything else is refused.
 const UI_SECRETS: &[&str] = &["session"];
@@ -19,6 +22,9 @@ const DEVICE_ID: &str = "device-id";
 /// Cache keys starting with `_` are device bookkeeping and are not reachable from the UI.
 const DEVICE_ID_FALLBACK: &str = "_device_id";
 const ENTITLEMENT_FALLBACK: &str = "_entitlement";
+
+/// Set once the UI has loaded and made its first call into the shell.
+static UI_READY: AtomicBool = AtomicBool::new(false);
 
 struct Core {
     store: Mutex<Store>,
@@ -36,10 +42,21 @@ fn now() -> i64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0)
 }
 
+/// Where the desktop apps look for a newer release: the manifest the release workflow attaches
+/// to the latest GitHub release.
+#[cfg(desktop)]
+const UPDATE_MANIFEST: &str = "https://github.com/Mostafijemon24/Nexora-AI/releases/latest/download/latest.json";
+
 /// The license server's public key, baked in at build time. Without it no token verifies.
 fn license_public_key() -> Option<[u8; 32]> {
     let raw = option_env!("NEXORA_LICENSE_PUBLIC_KEY")?;
     STANDARD.decode(raw.trim()).ok()?.try_into().ok()
+}
+
+/// The key that update packages are verified against, baked in at build time. A build without
+/// it never looks for updates.
+fn updater_public_key() -> Option<&'static str> {
+    option_env!("NEXORA_UPDATER_PUBKEY").map(str::trim).filter(|k| !k.is_empty())
 }
 
 /// A random registration id, created once per install. It identifies this install to the
@@ -90,6 +107,7 @@ fn os_label() -> String {
 
 #[tauri::command]
 fn device_info(app: tauri::AppHandle, core: State<Core>) -> DeviceInfo {
+    UI_READY.store(true, Ordering::Relaxed);
     let platform = match std::env::consts::OS {
         "windows" => "windows",
         "macos" => "macos",
@@ -228,15 +246,144 @@ fn secret_delete(name: String) -> CmdResult<()> {
     secure::delete(&name)
 }
 
+/// Start-up check used by CI on every desktop platform: with `NEXORA_SMOKE_TEST=1` the app quits
+/// by itself, with exit code 0 once the window's UI has loaded, called into the shell and stayed
+/// up for 15 seconds, or with 1 if the UI never arrived.
+#[cfg(desktop)]
+fn smoke_test(app: tauri::AppHandle) {
+    use std::time::{Duration, Instant};
+    std::thread::spawn(move || {
+        let started = Instant::now();
+        while !UI_READY.load(Ordering::Relaxed) {
+            if started.elapsed() > Duration::from_secs(90) {
+                eprintln!("smoke test: the UI did not load within 90 seconds");
+                std::process::exit(1);
+            }
+            std::thread::sleep(Duration::from_millis(200));
+        }
+        println!("smoke test: UI ready after {} ms", started.elapsed().as_millis());
+        std::thread::sleep(Duration::from_secs(15));
+        if app.webview_windows().is_empty() {
+            eprintln!("smoke test: the window closed during the test");
+            std::process::exit(1);
+        }
+        println!("smoke test: still running after 15 seconds");
+        app.exit(0);
+    });
+}
+
+/// Saves an export (CSV, backup) to the user's Downloads folder and returns where it went.
+#[tauri::command]
+fn save_file(app: tauri::AppHandle, name: String, contents: String) -> CmdResult<String> {
+    let name = files::safe_file_name(&name);
+    let downloads = app.path().download_dir().map_err(|e| e.to_string());
+    let written = downloads.and_then(|dir| files::write_new(&dir, &name, &contents).map_err(|e| e.to_string()));
+    let path = match written {
+        Ok(path) => path,
+        // No Downloads folder, or it is not writable (some phones): keep the file with the app's documents.
+        Err(_) => {
+            let dir = app.path().document_dir().or_else(|_| app.path().app_data_dir()).map_err(|e| e.to_string())?;
+            files::write_new(&dir, &name, &contents).map_err(|e| format!("The file could not be saved: {e}"))?
+        }
+    };
+    Ok(path.to_string_lossy().into_owned())
+}
+
+/// Only https, so the UI cannot be used to launch local files or other programs.
+fn external_url(raw: &str) -> CmdResult<tauri::Url> {
+    let url = tauri::Url::parse(raw.trim()).map_err(|_| "That is not a valid web address.".to_string())?;
+    if url.scheme() != "https" || url.host_str().is_none() {
+        return Err("Only https:// addresses can be opened.".into());
+    }
+    Ok(url)
+}
+
+/// Opens a web address in the default browser.
+#[tauri::command]
+fn open_external(app: tauri::AppHandle, url: String) -> CmdResult<()> {
+    let url = external_url(&url)?;
+    app.opener().open_url(url.as_str(), None::<&str>).map_err(|e| e.to_string())
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct UpdateInfo {
+    version: String,
+    notes: Option<String>,
+}
+
+#[cfg(desktop)]
+async fn find_update(app: &tauri::AppHandle) -> CmdResult<Option<tauri_plugin_updater::Update>> {
+    use tauri_plugin_updater::UpdaterExt;
+    let Some(key) = updater_public_key() else {
+        return Ok(None);
+    };
+    let endpoint = tauri::Url::parse(UPDATE_MANIFEST).map_err(|e| e.to_string())?;
+    let updater = app
+        .updater_builder()
+        .pubkey(key)
+        .endpoints(vec![endpoint])
+        .and_then(|b| b.build())
+        .map_err(|e| e.to_string())?;
+    updater.check().await.map_err(|e| e.to_string())
+}
+
+/// The newer release, if there is one. Always `None` in a build without an updater key and on
+/// Android, where the store delivers updates.
+#[tauri::command]
+async fn update_check(app: tauri::AppHandle) -> CmdResult<Option<UpdateInfo>> {
+    #[cfg(desktop)]
+    {
+        Ok(find_update(&app).await?.map(|u| UpdateInfo { version: u.version.clone(), notes: u.body.clone() }))
+    }
+    #[cfg(mobile)]
+    {
+        let _ = app;
+        Ok(None)
+    }
+}
+
+/// Downloads the newer release, checks its signature, installs it and restarts the app.
+#[tauri::command]
+async fn update_install(app: tauri::AppHandle) -> CmdResult<()> {
+    #[cfg(desktop)]
+    {
+        let Some(update) = find_update(&app).await? else {
+            return Err("This is already the latest version.".into());
+        };
+        update.download_and_install(|_, _| {}, || {}).await.map_err(|e| e.to_string())?;
+        app.restart();
+    }
+    #[cfg(mobile)]
+    {
+        let _ = app;
+        Err("Updates are delivered by the app store on this device.".into())
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
         .setup(|app| {
+            // Registered on every desktop build; it only ever runs when an updater key was baked in.
+            #[cfg(desktop)]
+            {
+                let mut updater = tauri_plugin_updater::Builder::new();
+                if let Some(key) = updater_public_key() {
+                    updater = updater.pubkey(key);
+                }
+                app.handle().plugin(updater.build())?;
+            }
             let dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&dir)?;
             let store = Store::open(&dir.join("nexora.db"))?;
             let device_id = load_device_id(&store);
             app.manage(Core { store: Mutex::new(store), device_id });
+            #[cfg(desktop)]
+            if std::env::var_os("NEXORA_SMOKE_TEST").is_some_and(|v| v == "1") {
+                smoke_test(app.handle().clone());
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -254,6 +401,10 @@ pub fn run() {
             secret_set,
             secret_get,
             secret_delete,
+            save_file,
+            open_external,
+            update_check,
+            update_install,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Nexora AI");
@@ -269,6 +420,17 @@ mod tests {
         assert_eq!(iso(1_795_392_000), "2026-11-23T00:00:00Z");
         assert_eq!(iso(951_782_399), "2000-02-28T23:59:59Z");
         assert_eq!(iso(951_782_400), "2000-02-29T00:00:00Z");
+    }
+
+    #[test]
+    fn only_https_addresses_are_opened() {
+        assert!(external_url("https://www.linkedin.com/oauth/v2/authorization?x=1").is_ok());
+        assert!(external_url("  https://example.com  ").is_ok());
+        assert!(external_url("http://example.com").is_err());
+        assert!(external_url("file:///etc/passwd").is_err());
+        assert!(external_url("javascript:alert(1)").is_err());
+        assert!(external_url("C:\\Windows\\notepad.exe").is_err());
+        assert!(external_url("not a url").is_err());
     }
 
     #[test]

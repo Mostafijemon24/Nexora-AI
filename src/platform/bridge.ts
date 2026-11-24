@@ -11,6 +11,13 @@ export interface EntitlementStatus {
   reason?: string;
 }
 
+/** A release newer than the running app. */
+export interface AppUpdate {
+  version: string;
+  /** Release notes, when the release has any. */
+  notes?: string | null;
+}
+
 export interface Bridge {
   readonly native: boolean;
   deviceInfo(): Promise<DeviceInfo>;
@@ -27,6 +34,17 @@ export interface Bridge {
   secretSet(name: string, value: string): Promise<void>;
   secretGet(name: string): Promise<string | null>;
   secretDelete(name: string): Promise<void>;
+  /**
+   * Saves a text file for the user. Native: written to the Downloads folder without replacing an
+   * existing file; resolves to the full path. Web: downloaded by the browser; resolves to the file name.
+   */
+  saveFile(name: string, contents: string): Promise<string>;
+  /** Opens an https address in the default browser (web: a new tab). Other schemes are refused. */
+  openExternal(url: string): Promise<void>;
+  /** The newer release, or null. Always null on the web, on Android and in a build without an updater key. */
+  updateCheck(): Promise<AppUpdate | null>;
+  /** Downloads and installs the newer release, then restarts the app. */
+  updateInstall(): Promise<void>;
 }
 
 const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
@@ -55,6 +73,10 @@ function tauriBridge(): Bridge {
     secretSet: (name, value) => invoke('secret_set', { name, value }),
     secretGet: (name) => invoke('secret_get', { name }),
     secretDelete: (name) => invoke('secret_delete', { name }),
+    saveFile: (name, contents) => invoke('save_file', { name, contents }),
+    openExternal: (url) => invoke('open_external', { url }),
+    updateCheck: () => invoke('update_check'),
+    updateInstall: () => invoke('update_install'),
   };
 }
 
@@ -101,6 +123,26 @@ function webBridge(): Bridge {
     async secretSet(n, v) { secrets.set(n, v); },
     async secretGet(n) { return secrets.get(n) ?? null; },
     async secretDelete(n) { secrets.delete(n); },
+    async saveFile(name, contents) {
+      const file = name.split(/[\\/]/).pop()?.trim() || 'nexora-export.txt';
+      const url = URL.createObjectURL(new Blob([contents], { type: 'application/octet-stream' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      // The download reads the blob after the click, so it is released a little later.
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      return file;
+    },
+    async openExternal(url) {
+      if (!/^https:\/\/[^\s/]/i.test(url.trim())) throw new Error('Only https:// addresses can be opened.');
+      window.open(url.trim(), '_blank', 'noopener');
+    },
+    async updateCheck() { return null; },
+    async updateInstall() {},
   };
 }
 
