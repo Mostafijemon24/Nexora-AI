@@ -61,6 +61,8 @@ export function Communication() {
   const [draft, setDraft] = useState('');
   const [note, setNote] = useState('');
   const [adding, setAdding] = useState(false);
+  const [managing, setManaging] = useState(false);
+  const [replyTitle, setReplyTitle] = useState('');
   const now = new Date();
   // Another page asked for one conversation: show it once, then let the list decide.
   useEffect(() => { if (s.inboxId) { setActiveId(s.inboxId); s.set({ inboxId: null }); } }, [s.inboxId]);
@@ -109,6 +111,15 @@ export function Communication() {
     s.update((x) => ({ conversations: x.conversations.map((c) => (c.id === conv.id ? { ...c, unread: false, msgs: [...c.msgs, { id, me: true, text: t, at, queued: off || undefined }] } : c)) }));
     s.commit(connected && conv.address ? `Reply to ${conv.name} is on its way` : `Reply to ${conv.name} saved`, change('message', id, { id, conversationId: conv.id, text: t, at }));
     setDraft('');
+  };
+  const putReplies = (savedReplies: typeof ws.savedReplies, message: string) => {
+    s.update(() => ({ savedReplies }));
+    s.commit(message, change('savedReplies', 'savedReplies', savedReplies));
+  };
+  const saveReply = () => {
+    const title = replyTitle.trim();
+    putReplies([...ws.savedReplies.filter((r) => r.title !== title), { title, text: draft.trim() }], `Saved reply “${title}” stored`);
+    setReplyTitle('');
   };
   const addNote = () => {
     const t = note.trim();
@@ -188,9 +199,19 @@ export function Communication() {
               <Button onClick={() => setDraft(conv.suggestion)}>Use</Button>
             </div>
           )}
-          <div className="row wrap" style={{ gap: 6 }}>
-            {ws.savedReplies.map((r) => <Chip key={r.title} onClick={() => setDraft(r.text)}>{r.title}</Chip>)}
+          <div className="row wrap center" style={{ gap: 6 }}>
+            {ws.savedReplies.map((r) => (managing
+              ? <button type="button" key={r.title} className="tag tag-outline" title={`Delete the saved reply ${r.title}`} onClick={() => putReplies(ws.savedReplies.filter((x) => x !== r), `Saved reply “${r.title}” deleted`)}>{r.title} ×</button>
+              : <Chip key={r.title} onClick={() => setDraft(r.text)}>{r.title}</Chip>))}
+            <Button variant="ghost" onClick={() => setManaging(!managing)}>{managing ? 'Done' : 'Saved replies…'}</Button>
           </div>
+          {managing && (
+            <div className="row wrap" style={{ alignItems: 'flex-end' }}>
+              <div style={{ flex: 1, minWidth: 200 }}><TextField label="Save the reply below as" placeholder="e.g. Pricing overview" value={replyTitle} onChange={setReplyTitle} /></div>
+              <Button disabled={!replyTitle.trim() || !draft.trim()} onClick={saveReply}>Save reply</Button>
+              <span className="note" style={{ flexBasis: '100%' }}>Saved replies are shared by everyone in this workspace. Write the reply in the box below, give it a title, and save it; select a saved reply’s × to delete it.</span>
+            </div>
+          )}
           <textarea className="input" placeholder="Write a reply" aria-label="Reply" value={draft} onChange={(e) => setDraft(e.target.value)} />
           <div className="row" style={{ justifyContent: 'flex-end' }}>
             <PrimaryButton disabled={!draft.trim()} onClick={send}>{connected && conv.address ? 'Send reply' : 'Save reply'}</PrimaryButton>

@@ -95,6 +95,15 @@ describe('changes', () => {
     expect(s.activity[0].text).toBe('Profile saved');
   });
 
+  it('stores the shared list of saved replies, in order', async () => {
+    await push(a, change('savedReplies', 'savedReplies', [{ title: 'Pricing', text: 'Our plans start at $9.' }, { title: ' Call ', text: 'Two slots: Wed 3pm or Thu 11am.' }]));
+    expect((await snap(a)).savedReplies).toEqual([{ title: 'Pricing', text: 'Our plans start at $9.' }, { title: 'Call', text: 'Two slots: Wed 3pm or Thu 11am.' }]);
+    expect((await push(a, change('savedReplies', 'savedReplies', [{ title: '', text: 'x' }]))).body.message).toBe('Give the saved reply a title.');
+    await push(a, change('savedReplies', 'savedReplies', [{ title: 'Only', text: 'One left.' }]));
+    expect((await snap(a)).savedReplies).toEqual([{ title: 'Only', text: 'One left.' }]);
+    expect((await snap(b)).savedReplies).toHaveLength(3); // the other workspace's list is untouched
+  });
+
   it('rejects invalid data with a clear message and stores nothing', async () => {
     const id = randomUUID();
     const cases: [unknown, string | RegExp][] = [

@@ -86,6 +86,8 @@ const Schemas = {
   }),
   security: z.object({ mfa: z.boolean() }),
   publishing: z.object({ auto: z.boolean() }),
+  /** The workspace's whole list of saved replies, in order. */
+  savedReplies: z.array(z.object({ title: z.string().trim().min(1, 'Give the saved reply a title.').max(200), text: z.string().trim().min(1).max(4000) })).max(100),
 } as const;
 
 type Entity = keyof typeof Schemas;
@@ -205,6 +207,12 @@ async function applyOne(ctx: Ctx, q: Q, auth: Auth, raw: unknown): Promise<After
     case 'sync': {
       const { lastBackupAt: _ignored, ...s } = d as z.infer<typeof Schemas.sync>;
       await q.query('UPDATE workspaces SET sync = $1 WHERE id = $2', [j(s), w]);
+      break;
+    }
+    case 'savedReplies': {
+      const list = d as z.infer<typeof Schemas.savedReplies>;
+      await q.query('DELETE FROM saved_replies WHERE workspace_id = $1', [w]);
+      for (const [i, r] of list.entries()) await q.query('INSERT INTO saved_replies (workspace_id, title, text, position) VALUES ($1, $2, $3, $4)', [w, r.title, r.text, i]);
       break;
     }
     case 'publishing': await q.query('UPDATE workspaces SET auto_publish = $1 WHERE id = $2', [(d as z.infer<typeof Schemas.publishing>).auto, w]); break;

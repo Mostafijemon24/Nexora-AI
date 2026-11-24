@@ -399,6 +399,7 @@ export function createDemoBackend(now: () => Date = () => new Date(), sample = s
     if (single && c.op === 'upsert') (ws as unknown as Record<string, unknown>)[single] = c.data;
     if (c.entity === 'security' && c.op === 'upsert') ws.mfa = (c.data as { mfa: boolean }).mfa;
     if (c.entity === 'publishing' && c.op === 'upsert') ws.autoPublish = (c.data as { auto: boolean }).auto;
+    if (c.entity === 'savedReplies' && c.op === 'upsert') ws.savedReplies = c.data as WorkspaceSnapshot['savedReplies'];
     return none;
   };
 
@@ -494,7 +495,7 @@ export function createDemoBackend(now: () => Date = () => new Date(), sample = s
         return structuredClone(ws);
       },
       async push(changes) {
-        await wait(150);
+        // Applied and stored at once: closing the app right after a change must not lose it.
         let effects = false;
         try {
           for (const c of changes) {
