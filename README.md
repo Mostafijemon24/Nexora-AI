@@ -64,6 +64,8 @@ and gives no points for it; it never makes facts up.
 
 ### Keep every lead moving
 
+<img src="docs/images/leads-pipeline.png" alt="The lead pipeline" width="100%">
+
 Each lead has a stage — New, Contacted, Interested, Converted or Lost — along with contact details,
 tags and notes. Search and filter the list, change many leads at once, drag them through the
 pipeline, and group them into campaigns that show how many were contacted, replied and converted.
@@ -121,6 +123,8 @@ task, and set a monthly spending limit.
 ### See the whole picture
 
 <img src="docs/images/dashboard-dark.png" alt="Dashboard in dark mode" width="100%">
+
+<img src="docs/images/reports.png" alt="Reports" width="100%">
 
 The dashboard shows new leads, unread conversations, scheduled posts, the lead funnel and your
 tasks for the last 7, 30 or 90 days. The Reports page adds contact, reply and conversion rates,
